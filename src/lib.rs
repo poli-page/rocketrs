@@ -11,5 +11,6 @@
 //!
 //! [Poli Page]: https://poli.page
 
+pub mod errors;
 pub mod headers;
 pub mod responses;
