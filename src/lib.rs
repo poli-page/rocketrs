@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Rocket.rs fairing and responders for the [Poli Page] PDF rendering API.
@@ -11,3 +12,4 @@
 //! [Poli Page]: https://poli.page
 
 pub mod headers;
+pub mod responses;
