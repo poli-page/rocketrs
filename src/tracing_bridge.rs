@@ -1,9 +1,14 @@
 //! Default `on_retry` / `on_error` hooks emitting structured `tracing` events
 //! under the `poli_page_rocket` target.
+//!
+//! The module itself is private; the functions are `pub` only so the
+//! `__internal_tracing_bridge` hidden re-export in `lib.rs` can expose
+//! them to unit tests.
 
 use poli_page::{Error, RetryEvent};
 
-pub(crate) fn on_retry(event: &RetryEvent) {
+/// Emit a `tracing::warn!` for an SDK retry attempt.
+pub fn on_retry(event: &RetryEvent) {
     tracing::warn!(
         target: "poli_page_rocket",
         attempt = event.attempt,
@@ -15,7 +20,8 @@ pub(crate) fn on_retry(event: &RetryEvent) {
     );
 }
 
-pub(crate) fn on_error(err: &Error) {
+/// Emit a `tracing::error!` for an SDK terminal error.
+pub fn on_error(err: &Error) {
     tracing::error!(
         target: "poli_page_rocket",
         code = err.code(),
