@@ -1,0 +1,51 @@
+[package]
+name          = "poli-page-rocket"
+version       = "0.1.0"
+edition       = "2021"
+rust-version  = "1.75"
+authors       = ["Poli Page"]
+description   = "Rocket.rs fairing and responders for the Poli Page PDF rendering API"
+homepage      = "https://poli.page"
+repository    = "https://github.com/poli-page/rocketrs"
+documentation = "https://docs.rs/poli-page-rocket"
+readme        = "README.md"
+license       = "MIT OR Apache-2.0"
+keywords      = ["rocket", "pdf", "html", "template", "poli-page"]
+categories    = ["api-bindings", "web-programming"]
+exclude       = ["/.github", "/example-app"]
+
+[lib]
+name = "poli_page_rocket"
+path = "src/lib.rs"
+
+[dependencies]
+poli-page = "1.0.0-rc.1"
+rocket    = { version = "0.5", default-features = false }
+tracing   = "0.1"
+bytes     = "1.7"
+http      = "1.1"
+
+[dev-dependencies]
+tokio              = { version = "1.40", features = ["macros", "rt-multi-thread", "time"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Local-dev override while the SDK is pre-stable. Remove on the same PR
+# that bumps the requirement to a published stable release.
+[patch.crates-io]
+poli-page = { path = "../sdk-rust" }
+
+[lints.clippy]
+pedantic    = { level = "warn", priority = -1 }
+cargo       = { level = "warn", priority = -1 }
+# Hand-off lints — see CLAUDE.md §10.2.
+unwrap_used = "deny"
+expect_used = "deny"
+# Quiet a few pedantic lints the SDK pattern intentionally accepts:
+module_name_repetitions = "allow"
+missing_errors_doc      = "allow"
+# Transitive duplicates come from rocket/reqwest; unfixable without forking deps.
+multiple_crate_versions = "allow"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+targets      = ["x86_64-unknown-linux-gnu"]
