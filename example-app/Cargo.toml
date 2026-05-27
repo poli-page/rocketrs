@@ -1,0 +1,28 @@
+[package]
+name    = "poli-page-rocket-example-app"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+poli-page-rocket   = { path = ".." }
+poli-page          = "1.0.0-rc.1"
+rocket             = { version = "0.5", features = ["json"] }
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
+dotenvy            = "0.15"
+tokio              = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes              = "1.7"
+
+[patch.crates-io]
+poli-page = { path = "../../sdk-rust" }
+
+[[bin]]
+name = "example-app"
+path = "src/main.rs"
+
+[[bin]]
+name = "render_to_file"
+path = "src/bin/render_to_file.rs"
