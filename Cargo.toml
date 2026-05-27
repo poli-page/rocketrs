@@ -12,7 +12,14 @@ readme        = "README.md"
 license       = "MIT OR Apache-2.0"
 keywords      = ["rocket", "pdf", "html", "template", "poli-page"]
 categories    = ["api-bindings", "web-programming"]
-exclude       = ["/.github", "/example-app"]
+exclude       = [
+    "/.github",
+    "/example-app",
+    "/tests",
+    "/docs",
+    "/CLAUDE.md",
+    "/rust-toolchain.toml",
+]
 
 [lib]
 name = "poli_page_rocket"
