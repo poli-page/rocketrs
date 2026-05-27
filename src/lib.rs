@@ -12,8 +12,11 @@
 //! [Poli Page]: https://poli.page
 
 pub mod errors;
+pub mod fairing;
 pub mod headers;
 pub mod responses;
 pub mod state;
+mod tracing_bridge;
 
+pub use fairing::PoliPageFairing;
 pub use state::{PoliPage, PoliPageClient};

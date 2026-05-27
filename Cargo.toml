@@ -30,6 +30,7 @@ serde_json   = "1.0"
 [dev-dependencies]
 tokio              = { version = "1.40", features = ["macros", "rt-multi-thread", "time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serial_test        = "3.1"
 
 # Local-dev override while the SDK is pre-stable. Remove on the same PR
 # that bumps the requirement to a published stable release.
