@@ -2287,3 +2287,26 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 Total: ~2,370 lines across 12 PRs. Each reviewable in under 30 minutes. Comparable to symfony-bundle's ~3,000 lines and the next.js plan's ~2,180 lines — Rocket's tighter framework surface plus the SDK's heavier type re-export burden lands in between.
 
 This document is the source of truth for execution order. If a PR's scope deviates from a Task, update this plan FIRST in the same PR, with reasoning in the description.
+
+---
+
+## Appendix: Executed deltas (Tasks 1–9)
+
+Plan vs reality, captured as Tasks 1–9 landed. The spec (`docs/spec/rocket-crate-specification.md`) has been updated to reflect these.
+
+| Task | Delta | Why |
+|---|---|---|
+| 1 | Added `clippy::multiple_crate_versions = "allow"` | Lint fires on transitive duplicates from rocket / reqwest / hyper. Unfixable from our side without forking deps. Standard escape hatch. |
+| 3 | `unsafe { Pin::new_unchecked }` → safe `Pin::new(&mut self.inner)` | `PdfByteStream` wraps `Pin<Box<dyn Stream + Send>>`, which is structurally `Unpin`. Safe `Pin::new` is sufficient and respects `#![forbid(unsafe_code)]`. |
+| 3 | `src/responses/mod.rs` only declares/re-exports `pdf` after Task 3 | The plan's literal mod.rs imports `PreviewResponse` / `DocumentRedirect` from placeholder files, which can't compile. mod.rs grows in Task 4 (preview, redirect) instead. |
+| 3 | `tokio::io::AsyncRead` → `rocket::tokio::io::AsyncRead` | Avoid a direct tokio dep that could diverge from Rocket's tokio version. |
+| 3 | Added `futures-core = "0.3"` to deps | Needed for the `Stream` trait used by the `PdfByteStream` adapter. |
+| 3 | `unwrap_used` / `expect_used` moved from `[lints.clippy]` (all targets) to `#![deny(...)]` in `src/lib.rs` (lib only) | Cargo's lint table is per-crate, not per-target; the deny attribute keeps integration tests in `tests/` free to unwrap. Honours CLAUDE.md §10.2. |
+| 5 | `impl Responder for poli_page::Error` → `PoliPageError(pub poli_page::Error)` newtype with `impl From<...>` and `impl Responder` | Orphan rule: `Responder` is foreign, `poli_page::Error` is foreign, so direct impl is forbidden. A local wrapper is the only sound path. Route ergonomics unchanged inside function bodies (`client...await?` still works via `From`); the only visible change is the return type. |
+| 5 | `status_for` keeps explicit arms + wildcard with `#[allow(clippy::match_same_arms)]` | Explicit arms document spec intent; wildcard is forward-compat for `#[non_exhaustive]`. Both intentionally map to 500. |
+| 5 | Added `serde_json = "1.0"` to deps | JSON body for error responses. |
+| 7 | `async fn on_ignite(self, ...)` → `async fn on_ignite(&self, ...)` with `Mutex<Source>` and a `Drained` variant | Rocket 0.5's trait method takes `&self`. Mutex lets us drain the consumed configuration from behind a shared reference. Ignite runs once per attach so contention is impossible; double-ignite hits `Drained` and fails cleanly. |
+| 7 | Tests call `Err.kind()` to suppress Rocket's drop-panic | `rocket::Error` panics on drop unless inspected (0.5 quirk). The `assert_ignite_failed` helper marks the error handled. |
+| 7 | Added `serial_test = "3.1"` dev-dep + `#[serial]` on fairing tests | `std::env::set_var` is process-global and races under cargo's default parallel execution. |
+| 8 | `tracing_bridge::on_retry` / `on_error` are `pub` (not `pub(crate)`); module stays private | `pub use` requires source items to be `pub`. The module being private at the crate root keeps the functions externally invisible except through the hidden `__internal_tracing_bridge` re-export. |
+| 8 | `unit_tracing_bridge` subscriber uses `.with_ansi(false)` | Default ANSI colour codes split otherwise-contiguous field strings (`attempt=3`) and break `contains` assertions. |

@@ -15,7 +15,7 @@
   - A **`PoliPageFairing`** that builds the SDK client at ignite-time and attaches it to Rocket's managed state.
   - A `PoliPageClient` newtype in managed state, extractable in routes via the standard `&State<PoliPageClient>` parameter or the sugar `PoliPage<'_>` request guard.
   - Three `Responder<'r, 'static>` types — `PdfResponse`, `PreviewResponse`, `DocumentRedirect` — with correct headers including RFC 5987 filename encoding.
-  - A `Responder` impl for the SDK's `poli_page::Error` so routes return `Result<PdfResponse, poli_page::Error>` and `?` does all the work.
+  - A `PoliPageError` newtype around the SDK's `poli_page::Error` that implements `Responder`. Routes return `Result<PdfResponse, PoliPageError>`; `?` runs the `From<poli_page::Error>` conversion. (Direct `impl Responder for poli_page::Error` is blocked by Rust's orphan rule — both trait and type are foreign — so a local wrapper is required. See §10.)
   - Bridging of SDK retry / error hooks into structured `tracing` events under the `poli_page_rocket` target.
   - A small example app at `example-app/` with the same interactive demo-UI pattern shipped in symfony-bundle, nextjs, and nestjs.
 
@@ -23,7 +23,7 @@
 - A reimplementation of SDK behaviour. Tests do not cover transport, retries, 4xx mapping, idempotency, or stream chunking — `poli-page`'s test suite (`tests/`) owns those.
 - A blocking-feature crate. The SDK has a `blocking` feature for sync callers, but Rocket 0.5 is async-only; we don't surface a blocking wrapper. Users wanting sync access can call into the SDK's `blocking` module directly.
 - A `rocket_contrib`-style swiss-army knife. No template helper, no database integration, no fairings beyond `PoliPageFairing`, no Swagger generation.
-- A global catcher. Rocket's `#[catch]` system is per-status-code, not per-error-type, so we cannot auto-map `poli_page::Error` the way NestJS's exception filter does. Instead, the SDK's error type implements `Responder` — users opt in by returning `Result<PdfResponse, poli_page::Error>`. See §10 and `CLAUDE.md` §10.3.
+- A global catcher. Rocket's `#[catch]` system is per-status-code, not per-error-type, so we cannot auto-map `poli_page::Error` the way NestJS's exception filter does. Instead, the `PoliPageError` wrapper implements `Responder` — users opt in by returning `Result<PdfResponse, PoliPageError>` (the wrapper exists because direct `impl Responder for poli_page::Error` violates the orphan rule). See §10 and `CLAUDE.md` §10.3.
 - A custom CLI. Rocket's `cargo run` is the launcher; the example app's `cargo run --bin example-app` IS the smoke test.
 
 ---
@@ -73,7 +73,7 @@ Three primitives:
    - `PdfResponse { body: Bytes | PdfByteStream, filename: Option<String>, inline: bool, cache_control: Option<String> }`
    - `PreviewResponse { html: String, cache_control: Option<String> }`
    - `DocumentRedirect { url: String, permanent: bool }`
-   - `impl<'r> Responder<'r, 'static> for poli_page::Error` — produces a typed JSON `Response` (status mapped per spec §10).
+   - `PoliPageError(poli_page::Error)` with `impl<'r> Responder<'r, 'static> for PoliPageError` and `impl From<poli_page::Error> for PoliPageError` — produces a typed JSON `Response` (status mapped per spec §10).
 
 That is the entire public surface. No DI macros, no proc-macro derives, no `attach()` builder beyond `rocket::build().attach(PoliPageFairing::from_env())`.
 
@@ -95,14 +95,14 @@ rocketrs/
 │   │   ├── preview.rs                      # PreviewResponse
 │   │   └── redirect.rs                     # DocumentRedirect
 │   ├── headers.rs                          # internal: RFC 5987 filename encoding (pure fns)
-│   ├── errors.rs                           # Responder impl for poli_page::Error
+│   ├── errors.rs                           # PoliPageError wrapper + Responder impl
 │   └── tracing_bridge.rs                   # internal: builds the on_retry / on_error closures
 ├── tests/
 │   ├── unit_headers.rs                     # RFC 5987 cases (ASCII + non-ASCII)
 │   ├── unit_pdf_response.rs                # PdfResponse Responder shape
 │   ├── unit_preview_response.rs            # PreviewResponse Responder shape
 │   ├── unit_redirect_response.rs           # DocumentRedirect Responder shape
-│   ├── unit_error_responder.rs             # poli_page::Error → status map
+│   ├── unit_error_responder.rs             # PoliPageError → status map
 │   ├── unit_tracing_bridge.rs              # on_retry / on_error emit the right events
 │   ├── fairing_state.rs                    # boot Rocket, assert PoliPageClient is in state
 │   ├── fairing_invalid_config.rs           # missing key fails ignite cleanly
@@ -171,9 +171,9 @@ impl PoliPageFairing {
 
 ### 6.2 Internal config struct
 
-`PoliPageFairing` holds an `enum Source { Env, Builder(Box<PoliPageBuilder>), Built(PoliPage) }`. On ignite (`Fairing::on_ignite`), the variant is resolved into a `PoliPage` and the result inserted into managed state via `Rocket::manage`.
+`PoliPageFairing` holds a `Mutex<Source>` where `enum Source { Env, Builder(Box<PoliPageBuilder>), Built(PoliPage), Drained }`. On ignite (`Fairing::on_ignite`), the variant is drained out of the Mutex (replaced with `Drained`), resolved into a `PoliPage`, and inserted into managed state via `Rocket::manage`.
 
-The `Box` on `Builder` keeps the fairing struct small (the builder is `~200` bytes; the box trims the enum to one word + tag). Optimisation note, not user-facing.
+The Mutex is required because Rocket 0.5's `Fairing::on_ignite` takes `&self` (not `self`) even though it semantically consumes the configuration — a `PoliPageBuilder` is moved out of the `Source` to call `.build()`, and the `Built` variant is moved into `rocket.manage(...)`. The `Drained` variant signals a double-ignite (logged + `Err(rocket)`); in practice ignite runs at most once per attach, so contention is impossible. The `Box` on `Builder` keeps the enum tight (builder is `~200` bytes; the box trims the enum to one word + tag).
 
 ### 6.3 Environment variable contract
 
@@ -229,7 +229,7 @@ use rocket::State;
 use poli_page_rocket::PoliPageClient;
 
 #[get("/welcome.pdf")]
-async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, poli_page::Error> {
+async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
     let bytes = client.render().pdf(input()).await?;
     Ok(PdfResponse::bytes(bytes).filename("welcome.pdf").inline())
 }
@@ -351,9 +351,11 @@ The crate does NOT ship a `poli-page` subcommand or a `cargo` extension; doing s
 
 (Replaces symfony §10 "EventDispatcher integration".)
 
-### 10.1 `impl Responder<'r, 'static> for poli_page::Error`
+### 10.1 `PoliPageError` wrapper + `impl Responder<'r, 'static>`
 
-The SDK's `Error` enum maps to HTTP responses as follows:
+`poli_page::Error` is foreign and `rocket::response::Responder` is foreign — Rust's orphan rule blocks `impl Responder for poli_page::Error` directly. The crate ships a local newtype `pub struct PoliPageError(pub poli_page::Error)` with `impl From<poli_page::Error>` (so `?` works inside routes) and `impl<'r> Responder<'r, 'static> for PoliPageError`.
+
+The wrapped SDK variants map to HTTP responses as follows:
 
 | `poli_page::Error` variant | HTTP status | Notes |
 |---|---|---|
@@ -389,7 +391,18 @@ Response headers: `Content-Type: application/json; charset=utf-8`, `Cache-Contro
 
 ### 10.2 Opt-in, not global
 
-The `Responder` impl is opt-in: routes return `Result<PdfResponse, poli_page::Error>` and `?` does the conversion. There is no global Rocket `#[catch]` because catchers are per-status-code, not per-error-type — registering a catch-all `#[catch(default)]` would swallow every error type from every route in the application. See `CLAUDE.md` §10.3.
+The `Responder` impl is opt-in: routes return `Result<PdfResponse, PoliPageError>` and `?` does the conversion from the SDK's `poli_page::Error` via the `From` impl. There is no global Rocket `#[catch]` because catchers are per-status-code, not per-error-type — registering a catch-all `#[catch(default)]` would swallow every error type from every route in the application. See `CLAUDE.md` §10.3.
+
+Inside route bodies the user-visible flow is unchanged from the SDK's surface:
+
+```rust
+async fn route(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
+    let bytes = client.render().pdf(input).await?;  // ? converts via From
+    Ok(PdfResponse::bytes(bytes))
+}
+```
+
+The wrapper is visible only in the return type.
 
 ### 10.3 Tracing bridge (the SDK hooks)
 
@@ -539,7 +552,7 @@ Stays as-is forever — example-app installs from local sources, not crates.io.
 | `unit_pdf_response.rs` | `PdfResponse` `Responder` produces the right `Content-Type` / `Content-Disposition` / `Cache-Control` / `X-Content-Type-Options`. Cover `Bytes` body and `PdfByteStream` body (mocked stream that yields one chunk and ends). |
 | `unit_preview_response.rs` | `PreviewResponse` headers + body. `From<PreviewResult>` and `From<DocumentPreviewResult>` conversions. |
 | `unit_redirect_response.rs` | 302 default, 308 on `.permanent()`, `Location` header, `Cache-Control`. |
-| `unit_error_responder.rs` | Every `poli_page::Error` variant → expected status code + body shape. |
+| `unit_error_responder.rs` | Every SDK error variant, wrapped in `PoliPageError`, → expected status code + body shape. |
 | `unit_tracing_bridge.rs` | Use `tracing_subscriber::fmt::with_test_writer()` to capture events; invoke the bridge closure with a fake `RetryEvent` / `Error` and assert the fields. |
 
 **Fairing tests** (boot a Rocket instance, ~few-hundred-ms each):
@@ -573,8 +586,10 @@ If a bug in any of these appears, fix it in `sdk-rust`. **Do not reach for `wire
 - **Test runner**: Rust's built-in `#[test]` harness. No external framework.
 - **Async tests**: `#[rocket::async_test]` for fairing/integration tests; `#[test]` for pure-function unit tests.
 - **Local client**: `rocket::local::asynchronous::Client` exclusively (see `CLAUDE.md` §10.1).
-- **Tracing assertions**: `tracing-subscriber` `with_test_writer` (per `sdk-rust`'s pattern in its own tests).
-- **Lints**: `cargo clippy --all-targets -- -D warnings` runs in CI. The crate root sets `#![warn(clippy::pedantic, clippy::cargo)]`; specific allows live in `lib.rs` with one-line comments.
+- **Env-var serialisation**: fairing tests mutate `std::env::var`, which is process-global. `serial_test = "3.1"` (dev-dep) plus `#[serial]` on the tests in `fairing_state.rs` and `fairing_invalid_config.rs` prevents the races that would otherwise hit under cargo's default parallel execution.
+- **Rocket error inspection**: `rocket::Error` panics on drop unless inspected (Rocket 0.5 quirk). Tests that expect ignite to fail call `.kind()` on the returned `Err` to mark it handled; see the `assert_ignite_failed` helper in `fairing_invalid_config.rs`.
+- **Tracing assertions**: a small in-memory `MakeWriter` captures `tracing_subscriber::fmt` output for assertion. Pass `.with_ansi(false)` to the subscriber — the default ANSI colour codes split otherwise-contiguous field strings like `attempt=3`.
+- **Lints**: `cargo clippy --all-targets -- -D warnings` runs in CI. The crate root sets `#![warn(clippy::pedantic, clippy::cargo)]` plus `#![deny(clippy::unwrap_used, clippy::expect_used)]` (lib-only — Cargo's `[lints.clippy]` table applies to all targets including tests, so the deny lives in `lib.rs` to keep tests free to unwrap; see `CLAUDE.md` §10.2). `clippy::multiple_crate_versions` is allowed because transitive duplicates from rocket / reqwest / hyper are unfixable without forking deps.
 
 ---
 
@@ -776,7 +791,10 @@ Captured from the spec-review conversation so future agents don't reopen them:
 | Crate naming | **`poli-page-rocket`** | Hyphenated `<service>-<framework>` is the convention in the Rocket ecosystem (`rocket_db_pools` is the outlier; new third-party crates follow `sentry-rocket`, `rocket_cors`, `figment`). Library name `poli_page_rocket` (Rust requires snake_case). |
 | State injection | **Managed state via fairing** | Standard Rocket pattern; matches `rocket_db_pools` and `sentry-rocket`. |
 | Request guard | **Sugar `PoliPage<'_>`, primary `&State<PoliPageClient>`** | The state form is the canonical Rocket pattern and what the docs lead with; the guard is convenience. |
-| Error mapping | **`Responder` impl, opt-in** | Catchers are per-status-code, not per-error-type. `Responder` + `?` is the idiomatic Rust seam. Matches NextJS's "only `PoliPageError` gets mapped" rule. |
+| Error mapping | **`PoliPageError` newtype wrapper + `Responder` impl, opt-in** | Direct `impl Responder for poli_page::Error` violates the orphan rule (both foreign). A local newtype around `poli_page::Error` with `From<poli_page::Error>` is the only sound path; `?` does the conversion at route boundaries. Catchers are per-status-code, not per-error-type, so a global catch-all is also wrong. Matches NextJS's "only `PoliPageError` gets mapped" rule. |
+| Fairing config storage | **`Mutex<Source>` with a `Drained` sentinel** | Rocket 0.5's `Fairing::on_ignite` takes `&self`, but Source values are consumed (builder by `.build()`, client by `.manage()`). Mutex lets the configuration be drained from behind a shared reference. Ignite runs at most once per attach, so contention is impossible; double-ignite hits the `Drained` arm and fails cleanly. |
+| Stream→AsyncRead adapter | **Safe `Pin::new(&mut self.inner)`** | The SDK's `PdfByteStream` wraps `Pin<Box<dyn Stream + Send>>`, which is structurally `Unpin`. Safe `Pin::new` is sufficient, so we keep `#![forbid(unsafe_code)]` (§6 of CLAUDE.md) without needing `pin-project`. |
+| Lint scoping for `unwrap_used` / `expect_used` | **`#![deny(...)]` in `src/lib.rs`** | Cargo's `[lints.clippy]` table applies to all targets, which would also forbid tests from unwrapping. Putting the deny in `lib.rs` keeps it lib-only — tests in `tests/*.rs` are separate compilation units and unaffected. Honours CLAUDE.md §10.2. |
 | Tracing bridge | **`tracing` crate, default-on, override via custom builder** | `tracing` is the de-facto standard in the Tokio ecosystem; the SDK itself uses it. Custom hooks via `PoliPageFairing::new(builder)` keep the user in control. |
 | Hook surface in fairing | **No `on_retry` / `on_error` fields on the fairing** | Closures capture user data — most natural to construct at the call site, not at the framework config layer. The `new(builder)` constructor is the seam. |
 | Async runtime | **Tokio (inherited from Rocket)** | Rocket 0.5 is Tokio-only; no choice to make. |
