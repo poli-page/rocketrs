@@ -23,3 +23,8 @@ target
 /target
 Cargo.lock
 /example-app/target
+
+# Local secrets — POLI_PAGE_API_KEY etc.
+.env
+.env.local
+.env.*.local
