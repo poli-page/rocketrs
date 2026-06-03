@@ -1,11 +1,32 @@
 # poli-page-rocket
 
+> Render Poli Page documents as Rocket responders.
+
 [![CI](https://github.com/poli-page/rocketrs/actions/workflows/ci.yml/badge.svg)](https://github.com/poli-page/rocketrs/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/poli-page-rocket.svg)](https://crates.io/crates/poli-page-rocket)
 [![docs.rs](https://img.shields.io/docsrs/poli-page-rocket)](https://docs.rs/poli-page-rocket)
 [![license: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-Rocket.rs fairing and responders for the [Poli Page] PDF rendering API. A thin idiomatic veneer over the official [`poli-page`] SDK — managed-state DI, `Responder` impls with correct headers, opt-in typed JSON error mapping.
+## About
+
+You attach a fairing, the SDK client lands in Rocket's managed state, and your routes return `Responder` types that carry the conventional PDF, preview, and redirect headers. The crate is a thin veneer over the official [`poli-page`] SDK — it does not reimplement transport, retries, or error classification.
+
+**When to use this:**
+
+- You write Rocket 0.5 routes and want to return PDFs without hand-rolling `Content-Disposition` or `Cache-Control`.
+- You want SDK retry and error events bridged to `tracing` under a known target.
+- You want the `?` operator in routes to produce typed JSON error responses with the wire status.
+
+**When not to:**
+
+- You need a global Rocket catcher that swallows every SDK error type from every route — opt-in `Result<T, PoliPageError>` is the supported shape.
+- You target Rocket 0.4 or earlier.
+
+## Requirements
+
+- Rust `1.75` or newer (MSRV)
+- Rocket `0.5`
+- [`poli-page`] `1.0.0-rc.1` (re-exported; you do not depend on it directly)
 
 ## Install
 
@@ -13,11 +34,19 @@ Rocket.rs fairing and responders for the [Poli Page] PDF rendering API. A thin i
 cargo add poli-page-rocket poli-page rocket
 ```
 
-MSRV: Rust `1.75`. Tracks Rocket `0.5`.
+Set the API key before booting Rocket. Grab one from the [Poli Page dashboard](https://app.poli.page/settings/api-keys); it must start with `pp_test_` or `pp_live_`.
+
+```bash
+# .env (loaded by your host application, not by this crate)
+POLI_PAGE_API_KEY=pp_test_xxx
+```
+
+The crate reads from `std::env` only. The example app loads a `.env` file via [`dotenvy`](https://crates.io/crates/dotenvy); your application is free to do the same.
 
 ## Quick start
 
 ```rust
+// src/main.rs
 use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError, PoliPageFairing};
 use rocket::{get, routes, State};
 use serde_json::json;
@@ -42,152 +71,94 @@ fn rocket() -> _ {
 }
 ```
 
-## The three primitives
+## Configuration
 
-### `PoliPageFairing`
+`PoliPageFairing::from_env()` reads the variables below. To configure programmatically, pass a fully-built `poli_page::PoliPageBuilder` to `PoliPageFairing::new(builder)`, or wrap an existing client with `PoliPageFairing::with_client(client)`.
 
-Builds the SDK client at ignite-time and inserts it into Rocket's managed state. Three constructors:
+| Variable | Purpose | Default |
+|---|---|---|
+| `POLI_PAGE_API_KEY` | API key (required, prefix `pp_test_` or `pp_live_`) | — |
+| `POLI_PAGE_BASE_URL` | Override the API base URL | `https://api.poli.page` |
+| `POLI_PAGE_TIMEOUT_SECS` | Per-attempt timeout, in seconds | `60` |
+| `POLI_PAGE_MAX_RETRIES` | Retry budget for `5xx` and `429` (never `4xx`) | `2` |
+| `POLI_PAGE_RETRY_DELAY_MS` | Initial retry delay, in milliseconds (exponential backoff) | `500` |
 
 ```rust
-// Read everything from environment variables.
-PoliPageFairing::from_env();
-
-// Pass a fully-configured builder (custom reqwest client, hooks, etc.).
+// src/main.rs
 let builder = poli_page::PoliPage::builder()
     .api_key("pp_live_...")
     .timeout(std::time::Duration::from_secs(30));
-PoliPageFairing::new(builder);
 
-// Wrap an already-built client (e.g. one shared with non-Rocket code).
-PoliPageFairing::with_client(client);
+rocket::build().attach(PoliPageFairing::new(builder))
 ```
 
-Ignite fails with a logged `tracing::error!` when the API key is missing or malformed.
+## API at a glance
 
-### `PoliPageClient` and the `PoliPage<'_>` guard
-
-The canonical Rocket pattern — pull the client out of managed state:
-
-```rust
-#[get("/welcome.pdf")]
-async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
-    let bytes = client.render().pdf(input).await?;
-    Ok(PdfResponse::bytes(bytes))
-}
-```
-
-Or the optional sugar — one character less typing:
-
-```rust
-use poli_page_rocket::PoliPage;
-
-#[get("/welcome.pdf")]
-async fn welcome(client: PoliPage<'_>) -> Result<PdfResponse, PoliPageError> {
-    let bytes = client.0.render.pdf(input).await?;
-    Ok(PdfResponse::bytes(bytes))
-}
-```
-
-`PoliPageClient` is `Clone + Send + Sync + 'static` — the SDK's `PoliPage` is `Arc`-internal, so cloning is an atomic refcount bump.
-
-### Response types
-
-```rust
-// PDF, fully buffered. Sets Content-Type, RFC 5987 Content-Disposition,
-// Cache-Control: private, no-store, X-Content-Type-Options: nosniff.
-PdfResponse::bytes(bytes).filename("invoice.pdf").inline();
-
-// PDF, streamed chunk by chunk (no Content-Length, transfer-encoding: chunked).
-PdfResponse::stream(client.render().pdf_stream(input).await?);
-
-// HTML preview from render.preview or documents.preview.
-PreviewResponse::from(client.render().preview(input).await?);
-
-// 302 (default) or 308 (.permanent()) redirect to a presigned URL.
-DocumentRedirect::to(&descriptor.presigned_pdf_url);
-DocumentRedirect::from(&descriptor); // shorthand
-```
-
-## Environment variables
-
-| Var | Purpose | Default |
-|---|---|---|
-| `POLI_PAGE_API_KEY` | API key (required, must start with `pp_test_` or `pp_live_`) | — |
-| `POLI_PAGE_BASE_URL` | Override base URL | SDK default (`https://api.poli.page`) |
-| `POLI_PAGE_TIMEOUT_SECS` | Per-attempt timeout | SDK default (60s) |
-| `POLI_PAGE_MAX_RETRIES` | Retry budget (5xx + 429 only — 4xx never retried) | SDK default (2) |
-| `POLI_PAGE_RETRY_DELAY_MS` | Initial retry delay (exponential backoff) | SDK default (500ms) |
-
-The library reads from `std::env` only — loading `.env` files is the host application's responsibility. The example app uses [`dotenvy`](https://crates.io/crates/dotenvy).
-
-## Error handling
-
-Routes returning `Result<T, PoliPageError>` get a typed JSON error response for free:
-
-```json
-{
-  "code": "INVALID_VERSION_FORMAT",
-  "message": "bad request (400): Version selector must be 'draft' or an exact semver.",
-  "requestId": "req_abc123"
-}
-```
-
-Plus `Content-Type: application/json; charset=utf-8` and `Cache-Control: private, no-store`. Status mapping:
-
-| Error variant | HTTP status |
+| Symbol | Purpose |
 |---|---|
-| `BadRequest` (400 / 422), `Auth` (401), `PermissionDenied` (403), `NotFound` (404), `Gone` (410), `RateLimited` (429), `Api` | wire status (pass-through) |
-| `Connection`, `Download` | 502 Bad Gateway |
-| `Timeout` | 504 Gateway Timeout |
-| `Aborted` | 503 Service Unavailable |
-| `InvalidOptions`, `Internal` | 500 Internal Server Error |
+| `PoliPageFairing` | Rocket fairing; builds the SDK client at ignite and inserts it into managed state. |
+| `PoliPageClient` | Newtype wrapping `poli_page::PoliPage`; resolved via `&State<PoliPageClient>`. |
+| `PoliPage<'_>` | Optional request guard that yields `&poli_page::PoliPage`. |
+| `PdfResponse` | `Responder` for PDF bytes or chunked streams, with RFC 5987 `Content-Disposition`. |
+| `PreviewResponse` | `Responder` for HTML preview output from `render.preview` or `documents.preview`. |
+| `DocumentRedirect` | `Responder` that issues a 302 (or 308 via `.permanent()`) to a presigned URL. |
+| `PoliPageError` | Newtype around `poli_page::Error` with the `Responder` impl. |
 
-`PoliPageError` is a newtype wrapper around `poli_page::Error` — Rust's orphan rule blocks `impl Responder for poli_page::Error` directly. `From<poli_page::Error>` is implemented so the `?` operator does the conversion at route boundaries. Other error types bubble to Rocket's default 500 catcher; no global catch-all is registered.
+Full reference: [docs/api.md](docs/api.md) (forthcoming).
 
-## Streaming
+## Errors
 
-For large PDFs, stream the SDK's chunked response straight through:
+Routes returning `Result<T, PoliPageError>` get a typed JSON body `{ code, message, requestId }` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: private, no-store`. The SDK exposes more granular variants than the four-category taxonomy; this crate maps each one to the appropriate HTTP status.
+
+### Variants
+
+- **Auth** — `Error::Auth` (401), `Error::PermissionDenied` (403). Wire status passes through.
+- **Rate limit** — `Error::RateLimited` (429). Wire status passes through.
+- **Request rejected** — `Error::BadRequest` (400/422), `Error::NotFound` (404), `Error::Gone` (410), `Error::Api` (any other 4xx/5xx). Wire status passes through.
+- **Network / transport** — `Error::Connection` and `Error::Download` map to 502; `Error::Timeout` maps to 504; `Error::Aborted` maps to 503; `Error::InvalidOptions` and `Error::Internal` map to 500.
 
 ```rust
-#[get("/large-report.pdf")]
-async fn report(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
-    let stream = client.render().pdf_stream(input).await?;
-    Ok(PdfResponse::stream(stream).filename("report.pdf"))
+// src/routes.rs
+use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError};
+use rocket::{get, State};
+
+#[get("/invoice.pdf")]
+async fn invoice(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
+    let bytes = client.render().pdf(input).await?; // ? converts poli_page::Error
+    Ok(PdfResponse::bytes(bytes).filename("invoice.pdf"))
 }
 ```
-
-Rocket emits `Transfer-Encoding: chunked` and forwards bytes to the client as the SDK yields them.
-
-## Observability
-
-Default `on_retry` / `on_error` hooks emit structured `tracing` events under the target `poli_page_rocket`:
-
-```text
-WARN poli_page_rocket: poli_page retry attempt=2 delay_ms=500 code="INTERNAL_ERROR" status=503 ...
-ERROR poli_page_rocket: poli_page terminal error code="timeout" message="request timed out after 60s" ...
-```
-
-Override the bridge by passing a custom builder to `PoliPageFairing::new(...)` with your own `.on_retry(...)` / `.on_error(...)` closures.
 
 ## Example app
 
-The `example-app/` directory ships a self-contained Rocket binary covering all 10 SDK demo steps with an interactive HTML dashboard at `GET /`:
+A self-contained Rocket 0.5 binary lives in [`example-app/`](example-app/). It covers all 10 SDK demo steps through nine HTTP routes plus an interactive HTML dashboard at `GET /`, and ships a standalone `render_to_file` binary for SDK demo step 3.
 
 ```bash
 cd example-app
 POLI_PAGE_API_KEY=pp_test_... cargo run --bin example-app
-open http://localhost:8000
+# open http://localhost:8000
 ```
 
-`cargo run --bin render_to_file` runs SDK demo step 3 (write a PDF to `/tmp`) as a standalone binary.
+## Going further
+
+- [Streaming](docs/streaming.md) — forward `PdfResponse::stream` from `client.render().pdf_stream(...)` with `Transfer-Encoding: chunked` (forthcoming).
+- [Observability](docs/observability.md) — bridge SDK `on_retry` and `on_error` events to `tracing` under the `poli_page_rocket` target (forthcoming).
+- [API reference](docs/api.md) — every public symbol with full type signatures and header guarantees (forthcoming).
+
+## Compatibility
+
+| `poli-page-rocket` | Rocket | Rust (MSRV) | `poli-page` SDK |
+|---|---|---|---|
+| `0.1.x` | `0.5` | `1.75` | `1.0.0-rc.1` |
+
+Rocket `0.5` is the only stable line at the time of writing. MSRV is bumped at most once per minor release.
 
 ## Contributing
 
-See [`CLAUDE.md`](./CLAUDE.md). TL;DR: TDD is mandatory, no `.unwrap()` in `src/`, conventional commit messages.
+See [CLAUDE.md](CLAUDE.md) (a `CONTRIBUTING.md` will replace it in a future release).
 
 ## License
 
-MIT OR Apache-2.0 (at your option). See [LICENSE-MIT](./LICENSE-MIT) and [LICENSE-APACHE](./LICENSE-APACHE).
+Dual-licensed under MIT ([LICENSE-MIT](LICENSE-MIT)) or Apache-2.0 ([LICENSE-APACHE](LICENSE-APACHE)) at your option.
 
-[Poli Page]: https://poli.page
 [`poli-page`]: https://crates.io/crates/poli-page
