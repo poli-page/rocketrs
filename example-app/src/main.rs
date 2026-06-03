@@ -43,6 +43,7 @@ async fn main() -> Result<(), rocket::Error> {
                 routes::render::pdf,
                 routes::render::stream,
                 routes::render::preview,
+                routes::render::file,
                 routes::documents::create,
                 routes::documents::get,
                 routes::documents::delete,

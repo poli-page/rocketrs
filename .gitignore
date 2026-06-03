@@ -24,6 +24,9 @@ target
 Cargo.lock
 /example-app/target
 
+# Demo step 3 (`/render/file`) writes the streamed PDF here.
+/example-app/output
+
 # Local secrets — POLI_PAGE_API_KEY etc.
 .env
 .env.local
