@@ -106,7 +106,9 @@ async fn bad_request_maps_to_status_400_with_code_and_request_id() {
     );
     let j = body(r).await;
     assert_eq!(j["code"], "INVALID_VERSION_FORMAT");
-    assert_eq!(j["message"], "bad request (400): bad");
+    // Message is the bare reason from the variant, not the Display prefix.
+    assert_eq!(j["message"], "bad");
+    assert_eq!(j["status"], 400);
     assert_eq!(j["requestId"], "req_1");
 }
 
@@ -159,9 +161,12 @@ async fn api_503_passes_through() {
 }
 
 #[rocket::async_test]
-async fn connection_error_maps_to_502() {
+async fn connection_error_maps_to_503() {
     let c = client().await;
-    assert_eq!(c.get("/conn").dispatch().await.status(), Status::BadGateway);
+    assert_eq!(
+        c.get("/conn").dispatch().await.status(),
+        Status::ServiceUnavailable
+    );
 }
 
 #[rocket::async_test]
@@ -174,11 +179,12 @@ async fn timeout_maps_to_504() {
 }
 
 #[rocket::async_test]
-async fn aborted_maps_to_503() {
+async fn aborted_maps_to_500() {
+    // Aborted has no upstream status; payload.status is None → 500 fallback.
     let c = client().await;
     assert_eq!(
         c.get("/aborted").dispatch().await.status(),
-        Status::ServiceUnavailable
+        Status::InternalServerError
     );
 }
 
@@ -192,12 +198,13 @@ async fn invalid_options_maps_to_500() {
 }
 
 #[rocket::async_test]
-async fn download_maps_to_502() {
+async fn download_propagates_storage_status() {
+    // The Download fixture uses status=Some(403); the new payload-driven
+    // design propagates the storage status verbatim (was hard-mapped to 502
+    // pre-rollout). Downloads with status=None fall back to 500 — impls
+    // that want 502 for that case override post-payload.
     let c = client().await;
-    assert_eq!(
-        c.get("/download").dispatch().await.status(),
-        Status::BadGateway
-    );
+    assert_eq!(c.get("/download").dispatch().await.status(), Status::Forbidden);
 }
 
 #[rocket::async_test]
