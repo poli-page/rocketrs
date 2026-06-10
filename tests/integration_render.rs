@@ -29,14 +29,14 @@ async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPage
 
 #[rocket::async_test]
 #[ignore = "real API; opt-in via `cargo test -- --ignored` with POLI_PAGE_API_KEY set"]
-async fn render_welcome_against_develop_api() {
+async fn render_welcome_against_live_api() {
     if std::env::var("POLI_PAGE_API_KEY").is_err() {
         eprintln!("POLI_PAGE_API_KEY not set; skipping real-API test.");
         return;
     }
-    // Default BASE_URL to develop if the caller didn't set one.
-    if std::env::var("POLI_PAGE_BASE_URL").is_err() {
-        std::env::set_var("POLI_PAGE_BASE_URL", "https://api-develop.poli.page");
+    // Forward POLI_PAGE_TEST_BASE_URL into the env the fairing reads.
+    if let Ok(v) = std::env::var("POLI_PAGE_TEST_BASE_URL") {
+        std::env::set_var("POLI_PAGE_BASE_URL", v);
     }
     let r = rocket::build()
         .attach(PoliPageFairing::from_env())

@@ -5,9 +5,7 @@ Self-contained Rocket 0.5 demo for `poli-page-rocket`. Covers every SDK demo ste
 ## Run
 
 ```bash
-POLI_PAGE_API_KEY=pp_test_...your-key... \
-POLI_PAGE_BASE_URL=https://api-develop.poli.page \
-cargo run --bin example-app
+POLI_PAGE_API_KEY=pp_test_...your-key... cargo run --bin example-app
 ```
 
 Then open <http://localhost:8000> — interactive dashboard with one button per SDK feature.

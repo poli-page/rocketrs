@@ -31,3 +31,6 @@ Cargo.lock
 .env
 .env.local
 .env.*.local
+CLAUDE.md
+docs/plan/
+docs/spec/

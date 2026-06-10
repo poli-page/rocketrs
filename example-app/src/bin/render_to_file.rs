@@ -14,12 +14,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenvy::from_path(".env");
 
     let api_key = std::env::var("POLI_PAGE_API_KEY")?;
-    let base_url = std::env::var("POLI_PAGE_BASE_URL")
-        .unwrap_or_else(|_| "https://api-develop.poli.page".into());
-    let client = PoliPage::builder()
-        .api_key(api_key)
-        .base_url(base_url)
-        .build()?;
+    let mut builder = PoliPage::builder().api_key(api_key);
+    if let Ok(base_url) = std::env::var("POLI_PAGE_BASE_URL") {
+        builder = builder.base_url(base_url);
+    }
+    let client = builder.build()?;
     let path = "/tmp/poli-page-rocketrs-demo.pdf";
     poli_page::render_to_file(
         &client,
