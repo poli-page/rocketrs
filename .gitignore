@@ -21,7 +21,7 @@ target
 #.idea/
 
 /target
-Cargo.lock
+/Cargo.lock
 /example-app/target
 
 # Demo step 3 (`/render/file`) writes the streamed PDF here.
