@@ -26,7 +26,7 @@ You attach a fairing, the SDK client lands in Rocket's managed state, and your r
 
 - Rust `1.75` or newer (MSRV)
 - Rocket `0.5`
-- [`poli-page`] `1.0.0-rc.1` (re-exported; you do not depend on it directly)
+- [`poli-page`] `0.9.0` (re-exported; you do not depend on it directly)
 
 ## Install
 
@@ -149,7 +149,7 @@ POLI_PAGE_API_KEY=pp_test_... cargo run --bin example-app
 
 | `poli-page-rocket` | Rocket | Rust (MSRV) | `poli-page` SDK |
 |---|---|---|---|
-| `0.1.x` | `0.5` | `1.75` | `1.0.0-rc.1` |
+| `0.1.x` | `0.5` | `1.75` | `0.9.0` |
 
 Rocket `0.5` is the only stable line at the time of writing. MSRV is bumped at most once per minor release.
 
