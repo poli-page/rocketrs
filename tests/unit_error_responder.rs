@@ -204,7 +204,10 @@ async fn download_propagates_storage_status() {
     // pre-rollout). Downloads with status=None fall back to 500 — impls
     // that want 502 for that case override post-payload.
     let c = client().await;
-    assert_eq!(c.get("/download").dispatch().await.status(), Status::Forbidden);
+    assert_eq!(
+        c.get("/download").dispatch().await.status(),
+        Status::Forbidden
+    );
 }
 
 #[rocket::async_test]

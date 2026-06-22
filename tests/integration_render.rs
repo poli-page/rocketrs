@@ -30,7 +30,12 @@ async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPage
 #[rocket::async_test]
 #[ignore = "real API; opt-in via `cargo test -- --ignored` with POLI_PAGE_API_KEY set"]
 async fn render_welcome_against_live_api() {
-    if std::env::var("POLI_PAGE_API_KEY").is_err() {
+    // Treat unset *and* empty as "no key": CI injects the secret via
+    // `POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_DEVELOP_API_KEY }}`, which
+    // expands to an empty string when the secret is absent. `var()` returns
+    // `Ok("")` for an empty-but-set var, so an `is_err()`-only guard would
+    // let the test proceed and ignite the fairing with an invalid key.
+    if std::env::var("POLI_PAGE_API_KEY").map_or(true, |k| k.trim().is_empty()) {
         eprintln!("POLI_PAGE_API_KEY not set; skipping real-API test.");
         return;
     }
