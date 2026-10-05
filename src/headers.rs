@@ -33,14 +33,19 @@ pub fn rfc5987_encode(s: &str) -> String {
     out
 }
 
-/// Build a `Content-Disposition` header value. If `filename` is ASCII-safe
-/// the result is `attachment; filename="<escaped>"`; otherwise both an
-/// ASCII fallback and an RFC 5987 `filename*` are emitted.
+/// Build a `Content-Disposition` header value.
+///
+/// Control characters (C0 including TAB/CR/LF, DEL, C1) are stripped first:
+/// none of them belong in a filename, and CR/LF would split the header. If
+/// what remains is ASCII-safe the result is `attachment; filename="<escaped>"`;
+/// otherwise both an escaped ASCII fallback and an RFC 5987 `filename*` are
+/// emitted. `\` and `"` are escaped as quoted-pairs (RFC 9110 §5.6.4).
 #[must_use]
 pub fn content_disposition(filename: &str, inline: bool) -> String {
     let disposition = if inline { "inline" } else { "attachment" };
-    if is_ascii_safe(filename) {
-        return format!(r#"{disposition}; filename="{}""#, escape_quotes(filename));
+    let filename: String = filename.chars().filter(|c| !c.is_control()).collect();
+    if is_ascii_safe(&filename) {
+        return format!(r#"{disposition}; filename="{}""#, escape_quotes(&filename));
     }
     let ascii_fallback: String = filename
         .chars()
@@ -52,7 +57,7 @@ pub fn content_disposition(filename: &str, inline: bool) -> String {
             }
         })
         .collect();
-    let encoded = rfc5987_encode(filename);
+    let encoded = rfc5987_encode(&filename);
     format!(
         r#"{disposition}; filename="{}"; filename*=UTF-8''{}"#,
         escape_quotes(&ascii_fallback),
