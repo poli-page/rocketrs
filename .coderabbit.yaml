@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config for poli-page repos. PRs here are mostly opened and fixed by automated agents
+# (the poli-page auto loop and issue pipeline), which read CodeRabbit's findings and its commit status.
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  allow_author_approval: true
+  # The summary goes in the walkthrough, never in the PR description: the merge gate reads the description.
+  high_level_summary: false
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: false
+  # The loop decides "reviewed this head" from the CodeRabbit commit status ("Review completed").
+  review_progress: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  # PR labels are the closed issues' labels; CodeRabbit only suggests.
+  auto_apply_labels: false
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+  abort_on_close: true
+  disable_cache: false
+  slop_detection:
+    enabled: true
+    include_all_authors: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # Every push of a fix round must be reviewed, and never auto-paused (the loop allows up to 5 rounds).
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  path_filters:
+    - "!**/Cargo.lock"
+    - "!**/target/**"
+  path_instructions:
+    - path: "src/**/*.rs"
+      instructions: >-
+        This is a published library crate (poli-page-rocket), a thin veneer over the poli-page SDK.
+        No unwrap()/expect() in src/ (denied in lib.rs), no reimplementation of transport, retries or
+        error classification, and no breaking change to the public API without a major version bump.
+    - path: "src/errors.rs"
+      instructions: >-
+        Error responders must emit the typed JSON error shape with the wire status from the SDK error
+        (`{ error: { code } }`), consistent with the other poli-page SDKs and the API spec.
+    - path: "src/responses/**/*.rs"
+      instructions: >-
+        PDF, preview and redirect responders must set the conventional Content-Disposition,
+        Cache-Control and related headers, and stream rather than buffer where the API allows it.
+    - path: "tests/**/*.rs"
+      instructions: >-
+        Every public responder, fairing and helper needs a test. Tests may unwrap, but must not hit
+        the network or require a real API key; use serial_test where global state (tracing) is touched.
+    - path: "example-app/**"
+      instructions: >-
+        Sample code that customers copy: correctness, idiomatic Rocket 0.5 usage, and no secrets.
+        The API key must come from POLI_PAGE_API_KEY, never hardcoded. Keep it in sync with the README.
+    - path: "{README.md,CHANGELOG.md,example-app/README.md}"
+      instructions: >-
+        Code samples and the MSRV, Rocket and poli-page version requirements must match Cargo.toml
+        and the actual public API; user-visible changes need a CHANGELOG entry.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns: []
