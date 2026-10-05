@@ -57,7 +57,7 @@ reviews:
     - path: "src/errors.rs"
       instructions: >-
         Error responders must emit the typed JSON error shape with the wire status from the SDK error
-        (`{ error: { code } }`), consistent with the other poli-page SDKs and the API spec.
+        (`{ error: CODE_STRING, detail?, issues? } (flat, API spec §4.1)`), consistent with the other poli-page SDKs and the API spec.
     - path: "src/responses/**/*.rs"
       instructions: >-
         PDF, preview and redirect responders must set the conventional Content-Disposition,
