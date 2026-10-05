@@ -55,3 +55,72 @@ fn content_disposition_emits_both_fallback_and_filename_star_for_non_ascii() {
 fn content_disposition_escapes_embedded_quotes() {
     assert!(content_disposition(r#"say "hi".pdf"#, false).contains(r#"filename="say \"hi\".pdf""#));
 }
+
+/// Same cases as poli-page/django#1: control characters stripped, `\` and `"`
+/// escaped as quoted-pairs, dual notation for non-ASCII names.
+#[test]
+fn content_disposition_is_rfc6266_safe() {
+    let cases: &[(&str, &str, &str)] = &[
+        (
+            "double-quote-is-escaped",
+            r#"say "hi".pdf"#,
+            r#"attachment; filename="say \"hi\".pdf""#,
+        ),
+        (
+            "backslash-is-escaped",
+            r"a\b.pdf",
+            r#"attachment; filename="a\\b.pdf""#,
+        ),
+        (
+            "crlf-is-stripped",
+            "evil.pdf\r\nSet-Cookie: sid=1",
+            r#"attachment; filename="evil.pdfSet-Cookie: sid=1""#,
+        ),
+        (
+            "control-chars-are-stripped",
+            "tab\there\u{0}\u{1f}\u{7f}.pdf",
+            r#"attachment; filename="tabhere.pdf""#,
+        ),
+        (
+            "parameter-injection-stays-inside-the-quoted-string",
+            r#"x.pdf"; filename="pwn.exe"#,
+            r#"attachment; filename="x.pdf\"; filename=\"pwn.exe""#,
+        ),
+        (
+            "non-ascii-uses-rfc5987-dual-notation",
+            "résumé François.pdf",
+            r#"attachment; filename="r_sum_ Fran_ois.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9%20Fran%C3%A7ois.pdf"#,
+        ),
+        (
+            "non-ascii-fallback-is-escaped",
+            r#"résumé "final"\v2.pdf"#,
+            r#"attachment; filename="r_sum_ \"final\"\\v2.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9%20%22final%22%5Cv2.pdf"#,
+        ),
+        (
+            "non-ascii-control-chars-are-stripped-from-both-forms",
+            "résumé\r\n\u{85}.pdf",
+            r#"attachment; filename="r_sum_.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf"#,
+        ),
+    ];
+    let failures: Vec<String> = cases
+        .iter()
+        .filter_map(|(id, filename, expected)| {
+            let got = content_disposition(filename, false);
+            (got != *expected).then(|| format!("{id}: expected {expected:?}, got {got:?}"))
+        })
+        .collect();
+    assert!(
+        failures.is_empty(),
+        "{} case(s) failed:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn content_disposition_inline_is_escaped_and_stripped() {
+    assert_eq!(
+        content_disposition("q\"\r\n.pdf", true),
+        r#"inline; filename="q\".pdf""#,
+    );
+}

@@ -4,6 +4,9 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
+### Fixed
+- `PdfResponse` / `headers::content_disposition`: control characters (CR/LF, TAB, DEL, C1) are now stripped from the `Content-Disposition` filename instead of surviving as `_` in the ASCII fallback and as `%0D%0A`-style escapes in `filename*`; `\` and `"` stay escaped as quoted-pairs.
+
 ## [0.1.0] — 2026-05-27
 
 ### Added
