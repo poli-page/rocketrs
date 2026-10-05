@@ -12,16 +12,19 @@ pub struct PoliPageClient(pub poli_page::PoliPage);
 
 impl PoliPageClient {
     /// Borrow the underlying SDK client.
+    #[must_use]
     pub fn client(&self) -> &poli_page::PoliPage {
         &self.0
     }
 
     /// Borrow the `render` namespace (`pdf`, `pdf_stream`, `preview`, `document`).
+    #[must_use]
     pub fn render(&self) -> &poli_page::Render {
         &self.0.render
     }
 
     /// Borrow the `documents` namespace (`get`, `preview`, `thumbnails`, `delete`).
+    #[must_use]
     pub fn documents(&self) -> &poli_page::Documents {
         &self.0.documents
     }
