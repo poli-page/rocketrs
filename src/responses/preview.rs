@@ -29,12 +29,6 @@ impl PreviewResponse {
     }
 }
 
-impl From<poli_page::PreviewResult> for PreviewResponse {
-    fn from(r: poli_page::PreviewResult) -> Self {
-        Self::new(r.html)
-    }
-}
-
 impl From<poli_page::DocumentPreviewResult> for PreviewResponse {
     fn from(r: poli_page::DocumentPreviewResult) -> Self {
         Self::new(r.html)

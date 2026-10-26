@@ -1,15 +1,14 @@
-use poli_page::ProjectModeInput;
-use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError, PreviewResponse};
+use poli_page::RenderInput;
+use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError};
 use rocket::serde::json::Json;
 use rocket::{get, post, State};
 use serde::Serialize;
 use serde_json::json;
 
-fn input() -> ProjectModeInput {
-    ProjectModeInput {
+fn input() -> RenderInput {
+    RenderInput {
         project: "getting-started".into(),
         template: "welcome".into(),
-        version: Some("1.0.0".into()),
         data: json!({ "name": "World" }),
         ..Default::default()
     }
@@ -27,12 +26,6 @@ pub async fn stream(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliP
     Ok(PdfResponse::stream(stream).filename("welcome.pdf").inline())
 }
 
-#[get("/render/preview")]
-pub async fn preview(client: &State<PoliPageClient>) -> Result<PreviewResponse, PoliPageError> {
-    let result = client.render().preview(input()).await?;
-    Ok(PreviewResponse::from(result))
-}
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderFileResult {
@@ -48,10 +41,9 @@ pub async fn file(client: &State<PoliPageClient>) -> Result<Json<RenderFileResul
 
     poli_page::render_to_file(
         client.client(),
-        ProjectModeInput {
+        RenderInput {
             project: "getting-started".into(),
             template: "welcome".into(),
-            version: Some("1.0.0".into()),
             data: json!({ "name": "render_to_file demo" }),
             ..Default::default()
         },

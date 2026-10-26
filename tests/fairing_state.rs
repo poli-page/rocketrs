@@ -15,7 +15,10 @@ fn probe(_client: &State<PoliPageClient>) -> &'static str {
 #[rocket::async_test]
 #[serial]
 async fn fairing_inserts_client_into_state() {
-    std::env::set_var("POLI_PAGE_API_KEY", "pp_test_demo_key");
+    std::env::set_var(
+        "POLI_PAGE_API_KEY",
+        "pp_sandbox_0123456789abcdef0123456789abcdef",
+    );
     let r = rocket::build()
         .attach(PoliPageFairing::from_env())
         .mount("/", routes![probe]);
@@ -29,7 +32,8 @@ async fn fairing_inserts_client_into_state() {
 #[rocket::async_test]
 #[serial]
 async fn fairing_with_explicit_builder_works() {
-    let builder = poli_page::PoliPage::builder().api_key("pp_test_explicit");
+    let builder =
+        poli_page::PoliPage::builder().api_key("pp_sandbox_0123456789abcdef0123456789abcdef");
     let r = rocket::build()
         .attach(PoliPageFairing::new(builder))
         .mount("/", routes![probe]);
@@ -40,7 +44,7 @@ async fn fairing_with_explicit_builder_works() {
 #[rocket::async_test]
 #[serial]
 async fn fairing_with_prebuilt_client_works() {
-    let client = poli_page::PoliPage::new("pp_test_prebuilt").unwrap();
+    let client = poli_page::PoliPage::new("pp_sandbox_0123456789abcdef0123456789abcdef").unwrap();
     let r = rocket::build()
         .attach(PoliPageFairing::with_client(client))
         .mount("/", routes![probe]);

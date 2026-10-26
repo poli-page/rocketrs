@@ -27,6 +27,7 @@ path = "src/lib.rs"
 
 [dependencies]
 poli-page    = "0.9.0"
+regex        = "1"
 rocket       = { version = "0.5", default-features = false }
 tracing      = "0.1"
 bytes        = "1.7"
@@ -39,10 +40,11 @@ tokio              = { version = "1.40", features = ["macros", "rt-multi-thread"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serial_test        = "3.1"
 
-# Local-dev override while the SDK is pre-stable. Remove on the same PR
-# that bumps the requirement to a published stable release.
+# Pins the unreleased poli-page SDK (poli-page/sdk-rust#36: environment keys,
+# no template versions, no render preview). Remove once the poli-page release
+# that carries it is on crates.io, and bump the requirement above to it.
 [patch.crates-io]
-poli-page = { path = "../sdk-rust" }
+poli-page = { git = "https://github.com/poli-page/sdk-rust", rev = "001eaac0507675826fb600232a0ff48c82d91c65" }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

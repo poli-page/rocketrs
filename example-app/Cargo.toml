@@ -16,8 +16,9 @@ tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bytes              = "1.7"
 
+# Same pin as the crate's own Cargo.toml; remove it with that one.
 [patch.crates-io]
-poli-page = { path = "../../sdk-rust" }
+poli-page = { git = "https://github.com/poli-page/sdk-rust", rev = "001eaac0507675826fb600232a0ff48c82d91c65" }
 
 [[bin]]
 name = "example-app"

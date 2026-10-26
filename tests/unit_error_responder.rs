@@ -12,7 +12,7 @@ fn make_error(variant: &str) -> Error {
     match variant {
         "bad-request" => Error::BadRequest {
             status: 400,
-            code: "INVALID_VERSION_FORMAT".into(),
+            code: "VALIDATION_ERROR".into(),
             message: "bad".into(),
             request_id: Some("req_1".into()),
         },
@@ -36,7 +36,7 @@ fn make_error(variant: &str) -> Error {
         },
         "gone" => Error::Gone {
             status: 410,
-            code: "GONE".into(),
+            code: "DOCUMENT_GONE".into(),
             message: "x".into(),
             request_id: None,
         },
@@ -105,7 +105,7 @@ async fn bad_request_maps_to_status_400_with_code_and_request_id() {
         Some("private, no-store")
     );
     let j = body(r).await;
-    assert_eq!(j["code"], "INVALID_VERSION_FORMAT");
+    assert_eq!(j["code"], "VALIDATION_ERROR");
     // Message is the bare reason from the variant, not the Display prefix.
     assert_eq!(j["message"], "bad");
     assert_eq!(j["status"], 400);

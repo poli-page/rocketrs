@@ -1000,6 +1000,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 [[package]]
 name = "poli-page"
 version = "0.9.0"
+source = "git+https://github.com/poli-page/sdk-rust?rev=001eaac0507675826fb600232a0ff48c82d91c65#001eaac0507675826fb600232a0ff48c82d91c65"
 dependencies = [
  "bytes",
  "futures-core",
@@ -1024,6 +1025,7 @@ dependencies = [
  "futures-core",
  "http 1.4.1",
  "poli-page",
+ "regex",
  "rocket",
  "serde_json",
  "tracing",
@@ -1280,6 +1282,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "regex"
+version = "1.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e10754a14b9137dd7b1e3e5b0493cc9171fdd105e0ab477f51b72e7f3ac0e276"
+dependencies = [
+ "aho-corasick",
+ "memchr",
+ "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]

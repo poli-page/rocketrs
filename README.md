@@ -34,12 +34,20 @@ You attach a fairing, the SDK client lands in Rocket's managed state, and your r
 cargo add poli-page-rocket poli-page rocket
 ```
 
-Set the API key before booting Rocket. Grab one from the [Poli Page dashboard](https://app.poli.page/settings/api-keys); it must start with `pp_test_` or `pp_live_`.
+Set the API key before booting Rocket. Grab one from the [Poli Page dashboard](https://app.poli.page/settings/api-keys). A key is `pp_{environment}_{32 lowercase hex}` and belongs to one environment of your organization, which decides how its renders are treated ("Counted" means the render counts toward the organization's monthly PDF quota):
+
+| Environment                           | Key            | Watermark | Counted |
+| ------------------------------------- | -------------- | --------- | ------- |
+| `sandbox` (every org)                 | `pp_sandbox_…` | yes       | no      |
+| `live` (every org, deletable on Pro+) | `pp_live_…`    | no        | yes     |
+| created on Pro+ (e.g. `staging`)      | `pp_staging_…` | no        | yes     |
 
 ```bash
 # .env (loaded by your host application, not by this crate)
-POLI_PAGE_API_KEY=pp_test_xxx
+POLI_PAGE_API_KEY=pp_sandbox_xxx
 ```
+
+The fairing only requires the key to be set and non-empty: the Poli Page API is the only authority on keys. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one warning under the `poli_page_rocket` target (showing at most its `pp_{environment}_` part, never the secret), and Rocket ignites anyway, letting the API answer (`401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`).
 
 The crate reads from `std::env` only. The example app loads a `.env` file via [`dotenvy`](https://crates.io/crates/dotenvy); your application is free to do the same.
 
@@ -53,10 +61,9 @@ use serde_json::json;
 
 #[get("/welcome.pdf")]
 async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
-    let bytes = client.render().pdf(poli_page::ProjectModeInput {
+    let bytes = client.render().pdf(poli_page::RenderInput {
         project: "getting-started".into(),
         template: "welcome".into(),
-        version: Some("1.0.0".into()),
         data: json!({ "name": "World" }),
         ..Default::default()
     }).await?;
@@ -77,7 +84,7 @@ fn rocket() -> _ {
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `POLI_PAGE_API_KEY` | API key (required, prefix `pp_test_` or `pp_live_`) | — |
+| `POLI_PAGE_API_KEY` | API key, `pp_{environment}_{32 lowercase hex}` (required and non-empty; e.g. `pp_sandbox_…`) | — |
 | `POLI_PAGE_BASE_URL` | Override the API base URL | `https://api.poli.page` |
 | `POLI_PAGE_TIMEOUT_SECS` | Per-attempt timeout, in seconds | `60` |
 | `POLI_PAGE_MAX_RETRIES` | Retry budget for `5xx` and `429` (never `4xx`) | `2` |
@@ -100,7 +107,7 @@ rocket::build().attach(PoliPageFairing::new(builder))
 | `PoliPageClient` | Newtype wrapping `poli_page::PoliPage`; resolved via `&State<PoliPageClient>`. |
 | `PoliPage<'_>` | Optional request guard that yields `&poli_page::PoliPage`. |
 | `PdfResponse` | `Responder` for PDF bytes or chunked streams, with RFC 5987 `Content-Disposition`. |
-| `PreviewResponse` | `Responder` for HTML preview output from `render.preview` or `documents.preview`. |
+| `PreviewResponse` | `Responder` for the stored HTML of a rendered document (`documents.preview`), or any HTML `String`. |
 | `DocumentRedirect` | `Responder` that issues a 302 (or 308 via `.permanent()`) to a presigned URL. |
 | `PoliPageError` | Newtype around `poli_page::Error` with the `Responder` impl. |
 
@@ -131,11 +138,11 @@ async fn invoice(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPage
 
 ## Example app
 
-A self-contained Rocket 0.5 binary lives in [`example-app/`](example-app/). It covers all 10 SDK demo steps through nine HTTP routes plus an interactive HTML dashboard at `GET /`, and ships a standalone `render_to_file` binary for SDK demo step 3.
+A self-contained Rocket 0.5 binary lives in [`example-app/`](example-app/). It covers the SDK demo steps through nine HTTP routes plus an interactive HTML dashboard at `GET /`, and ships a standalone `render_to_file` binary for SDK demo step 3.
 
 ```bash
 cd example-app
-POLI_PAGE_API_KEY=pp_test_... cargo run --bin example-app
+POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 # open http://localhost:8000
 ```
 

@@ -1,4 +1,5 @@
 use poli_page_rocket::responses::PreviewResponse;
+use poli_page_rocket::DocumentPreviewResult;
 use rocket::http::Status;
 use rocket::local::asynchronous::Client;
 use rocket::{get, routes};
@@ -13,8 +14,29 @@ fn preview_cache_override_route() -> PreviewResponse {
     PreviewResponse::new("<h1>Hi</h1>").cache_control("public, max-age=300")
 }
 
+#[get("/preview-from-string")]
+fn preview_from_string_route() -> PreviewResponse {
+    PreviewResponse::new(String::from("<h1>From a String</h1>"))
+}
+
+#[get("/preview-from-document")]
+fn preview_from_document_route() -> PreviewResponse {
+    PreviewResponse::from(DocumentPreviewResult {
+        html: "<h1>Stored</h1>".into(),
+        page_count: 1,
+    })
+}
+
 async fn client() -> Client {
-    let r = rocket::build().mount("/", routes![preview_route, preview_cache_override_route]);
+    let r = rocket::build().mount(
+        "/",
+        routes![
+            preview_route,
+            preview_cache_override_route,
+            preview_from_string_route,
+            preview_from_document_route
+        ],
+    );
     Client::tracked(r).await.unwrap()
 }
 
@@ -46,4 +68,22 @@ async fn preview_honors_cache_control_override() {
         r.headers().get_one("cache-control"),
         Some("public, max-age=300")
     );
+}
+
+#[rocket::async_test]
+async fn preview_builds_from_a_string_and_a_stored_document_preview() {
+    let c = client().await;
+    for (path, html) in [
+        ("/preview-from-string", "<h1>From a String</h1>"),
+        ("/preview-from-document", "<h1>Stored</h1>"),
+    ] {
+        let r = c.get(path).dispatch().await;
+        assert_eq!(r.status(), Status::Ok, "{path}");
+        assert_eq!(
+            r.headers().get_one("content-type"),
+            Some("text/html; charset=utf-8"),
+            "{path}"
+        );
+        assert_eq!(r.into_string().await.unwrap(), html, "{path}");
+    }
 }

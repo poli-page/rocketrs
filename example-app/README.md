@@ -5,7 +5,7 @@ Self-contained Rocket 0.5 demo for `poli-page-rocket`. Covers every SDK demo ste
 ## Run
 
 ```bash
-POLI_PAGE_API_KEY=pp_test_...your-key... cargo run --bin example-app
+POLI_PAGE_API_KEY=pp_sandbox_...your-key... cargo run --bin example-app
 ```
 
 Then open <http://localhost:8000> — interactive dashboard with one button per SDK feature.
@@ -26,10 +26,10 @@ cargo run --bin render_to_file
 | GET | `/` | Interactive HTML dashboard |
 | GET | `/render/pdf` | `PdfResponse::bytes` |
 | GET | `/render/stream` | `PdfResponse::stream` |
-| GET | `/render/preview` | `PreviewResponse` |
+| POST | `/render/file` | `Json` `{ path, sizeBytes }` after `poli_page::render_to_file` |
 | POST | `/documents` | `Json<DocumentDescriptor>` |
 | GET | `/documents/<id>` | `DocumentRedirect` (302 → presigned S3 URL) |
 | GET | `/documents/<id>/preview` | `PreviewResponse` |
 | GET | `/documents/<id>/thumbnails` | `Json<Vec<Thumbnail>>` |
 | DELETE | `/documents/<id>` | 204 No Content |
-| GET | `/errors/bad-version` | Triggers `INVALID_VERSION_FORMAT` → typed JSON 400 |
+| GET | `/errors/not-found` | Renders template `does-not-exist` → typed JSON 404 `TEMPLATE_NOT_FOUND` (`code`, `status`, `message`, `requestId`) |

@@ -1,4 +1,5 @@
-//! `PoliPageFairing::from_env()` rejects bad config at ignite.
+//! `PoliPageFairing::from_env()` rejects bad config at ignite. The API key
+//! checks live in `fairing_api_key.rs`.
 
 use poli_page_rocket::PoliPageFairing;
 use rocket::local::asynchronous::Client;
@@ -17,25 +18,11 @@ fn assert_ignite_failed(res: Result<Client, rocket::Error>, ctx: &str) {
 
 #[rocket::async_test]
 #[serial]
-async fn missing_api_key_fails_ignite() {
-    std::env::remove_var("POLI_PAGE_API_KEY");
-    let r = rocket::build().attach(PoliPageFairing::from_env());
-    assert_ignite_failed(Client::tracked(r).await, "POLI_PAGE_API_KEY missing");
-}
-
-#[rocket::async_test]
-#[serial]
-async fn bad_key_prefix_fails_ignite() {
-    std::env::set_var("POLI_PAGE_API_KEY", "sk_test_wrong_prefix");
-    let r = rocket::build().attach(PoliPageFairing::from_env());
-    assert_ignite_failed(Client::tracked(r).await, "wrong key prefix");
-    std::env::remove_var("POLI_PAGE_API_KEY");
-}
-
-#[rocket::async_test]
-#[serial]
 async fn bad_timeout_fails_ignite() {
-    std::env::set_var("POLI_PAGE_API_KEY", "pp_test_ok");
+    std::env::set_var(
+        "POLI_PAGE_API_KEY",
+        "pp_sandbox_0123456789abcdef0123456789abcdef",
+    );
     std::env::set_var("POLI_PAGE_TIMEOUT_SECS", "not-a-number");
     let r = rocket::build().attach(PoliPageFairing::from_env());
     assert_ignite_failed(Client::tracked(r).await, "non-numeric timeout");

@@ -7,7 +7,7 @@
 //!
 //! Run with:
 //! ```bash
-//! POLI_PAGE_API_KEY=pp_test_... cargo run --bin example-app
+//! POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 //! ```
 //!
 //! Or set the env vars in `/Users/mickael/Projects/.env` (workspace root)
@@ -17,8 +17,32 @@
 
 use poli_page_rocket::PoliPageFairing;
 use rocket::fs::{relative, FileServer};
+use rocket::{Build, Rocket};
 
 mod routes;
+
+/// The demo app: every route, mounted on a Rocket that `fairing` gives its
+/// SDK client.
+fn app(fairing: PoliPageFairing) -> Rocket<Build> {
+    rocket::build()
+        .attach(fairing)
+        .mount(
+            "/",
+            rocket::routes![
+                routes::demo::index,
+                routes::render::pdf,
+                routes::render::stream,
+                routes::render::file,
+                routes::documents::create,
+                routes::documents::get,
+                routes::documents::delete,
+                routes::documents::thumbnails,
+                routes::documents::preview,
+                routes::errors::not_found,
+            ],
+        )
+        .mount("/static", FileServer::from(relative!("static")))
+}
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
@@ -34,26 +58,8 @@ async fn main() -> Result<(), rocket::Error> {
         )
         .init();
 
-    rocket::build()
-        .attach(PoliPageFairing::from_env())
-        .mount(
-            "/",
-            rocket::routes![
-                routes::demo::index,
-                routes::render::pdf,
-                routes::render::stream,
-                routes::render::preview,
-                routes::render::file,
-                routes::documents::create,
-                routes::documents::get,
-                routes::documents::delete,
-                routes::documents::thumbnails,
-                routes::documents::preview,
-                routes::errors::bad_version,
-            ],
-        )
-        .mount("/static", FileServer::from(relative!("static")))
-        .launch()
-        .await
-        .map(|_| ())
+    app(PoliPageFairing::from_env()).launch().await.map(|_| ())
 }
+
+#[cfg(test)]
+mod tests;

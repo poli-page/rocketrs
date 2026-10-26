@@ -4,6 +4,17 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
+Breaking: adopts the environments contract of the `poli-page` SDK (environment keys, no template versions, no render preview).
+
+### Changed
+- `PoliPageFairing::from_env()` accepts any non-empty `POLI_PAGE_API_KEY` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`, …) instead of failing ignition unless the key starts with `pp_test_` or `pp_live_`. A missing or empty key still fails ignition. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one `tracing` warning under the `poli_page_rocket` target, showing at most its `pp_{environment}_` part, and ignites anyway: the API decides whether the key is valid.
+- Builds against the `poli-page` SDK whose render input is `RenderInput` with no `version`; the crate root re-exports `RenderInput`.
+- Example app: renders send no `version`, and `GET /errors/not-found` (template `does-not-exist`, answering `404` `TEMPLATE_NOT_FOUND` through the `PoliPageError` responder) replaces `GET /errors/bad-version`.
+
+### Removed
+- `impl From<poli_page::PreviewResult> for PreviewResponse` and the `InlineModeInput`, `PreviewResult` and `ProjectModeInput` re-exports: the SDK no longer has render preview or inline templates. `PreviewResponse` still builds from `DocumentPreviewResult` and from a `String`.
+- Example app: the `/render/preview` route and its dashboard button.
+
 ### Fixed
 - `PdfResponse` / `headers::content_disposition`: control characters (CR/LF, TAB, DEL, C1) are now stripped from the `Content-Disposition` filename instead of surviving as `_` in the ASCII fallback and as `%0D%0A`-style escapes in `filename*`; `\` and `"` stay escaped as quoted-pairs.
 

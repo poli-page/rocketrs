@@ -1,4 +1,4 @@
-use poli_page::{ProjectModeInput, ThumbnailOptions};
+use poli_page::{RenderInput, ThumbnailOptions};
 use poli_page_rocket::{DocumentRedirect, PoliPageClient, PoliPageError, PreviewResponse};
 use rocket::http::Status;
 use rocket::serde::json::Json;
@@ -9,10 +9,9 @@ use serde_json::{json, Value};
 pub async fn create(client: &State<PoliPageClient>) -> Result<Json<Value>, PoliPageError> {
     let descriptor = client
         .render()
-        .document(ProjectModeInput {
+        .document(RenderInput {
             project: "getting-started".into(),
             template: "welcome".into(),
-            version: Some("1.0.0".into()),
             data: json!({ "name": "Stored doc" }),
             ..Default::default()
         })
@@ -46,7 +45,7 @@ pub async fn thumbnails(
 ) -> Result<Json<Value>, PoliPageError> {
     let result = client
         .documents()
-        .thumbnails(id, ThumbnailOptions::new(200))
+        .thumbnails(id, Some(ThumbnailOptions::new().width(200)))
         .await?;
     // Thumbnail is Deserialize-only in the SDK; map by hand.
     let value = json!(result

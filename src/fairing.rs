@@ -4,13 +4,22 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
+use regex::Regex;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Rocket};
 
 use crate::state::PoliPageClient;
 use crate::tracing_bridge;
 
-const KEY_PATTERN_PREFIXES: &[&str] = &["pp_test_", "pp_live_"];
+/// Longest environment name the API issues keys for.
+const ENV_NAME_MAX_LEN: usize = 20;
+
+/// The SDK contract's full-key regex
+/// `^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$`
+/// without its lookahead, which the `regex` crate does not support:
+/// [`well_formed_api_key`] checks the captured environment name against
+/// [`ENV_NAME_MAX_LEN`] instead.
+const API_KEY_PATTERN: &str = r"^pp_([a-z][a-z0-9]*(?:-[a-z0-9]+)*)_[0-9a-f]{32}$";
 
 /// Rocket fairing that builds a `poli_page::PoliPage` at ignite-time and
 /// inserts it into managed state as [`PoliPageClient`].
@@ -37,7 +46,10 @@ enum Source {
 
 impl PoliPageFairing {
     /// Read all options from environment variables (see spec §6.3).
-    /// Ignite fails if `POLI_PAGE_API_KEY` is missing or malformed.
+    /// Ignite fails if `POLI_PAGE_API_KEY` is missing or empty. Any other
+    /// value ignites: the Poli Page API is the only authority on keys, so a
+    /// key that does not look like `pp_{environment}_{32 lowercase hex}` only
+    /// logs one warning.
     pub fn from_env() -> Self {
         Self {
             source: Mutex::new(Source::Env),
@@ -119,13 +131,20 @@ impl Fairing for PoliPageFairing {
 
 fn build_from_env() -> Result<poli_page::PoliPage, String> {
     let api_key = std::env::var("POLI_PAGE_API_KEY")
-        .map_err(|_| "POLI_PAGE_API_KEY is not set".to_owned())?;
-    if !KEY_PATTERN_PREFIXES.iter().any(|p| api_key.starts_with(p)) {
-        return Err(format!(
-            "POLI_PAGE_API_KEY must start with pp_test_ or pp_live_; got prefix {:?}. \
-             Get a key at https://app.poli.page/settings/api-keys.",
-            api_key.chars().take(8).collect::<String>(),
-        ));
+        .ok()
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| {
+            "POLI_PAGE_API_KEY is not set or empty. \
+             Get a key at https://app.poli.page/settings/api-keys."
+                .to_owned()
+        })?;
+    if !well_formed_api_key(&api_key) {
+        tracing::warn!(
+            target: "poli_page_rocket",
+            key_prefix = ?shown_key_prefix(&api_key),
+            "POLI_PAGE_API_KEY does not match pp_{{environment}}_{{32 lowercase hex}}; \
+             starting anyway, the Poli Page API decides whether the key is valid",
+        );
     }
     let mut builder = poli_page::PoliPage::builder()
         .api_key(api_key)
@@ -154,4 +173,25 @@ fn build_from_env() -> Result<poli_page::PoliPage, String> {
         builder = builder.retry_delay(Duration::from_millis(ms));
     }
     builder.build().map_err(|e| e.to_string())
+}
+
+// Both patterns are fixed and the tests compile them on every run, so
+// `Regex::new` cannot fail here.
+#[allow(clippy::expect_used)]
+fn well_formed_api_key(key: &str) -> bool {
+    Regex::new(API_KEY_PATTERN)
+        .expect("API_KEY_PATTERN compiles")
+        .captures(key)
+        .is_some_and(|c| c[1].len() <= ENV_NAME_MAX_LEN)
+}
+
+/// The most of a key that may be logged: its `pp_{env}_` part followed by
+/// `…`, or `none`. An `{env}` longer than any environment name is not shown,
+/// since it may be the secret itself.
+#[allow(clippy::expect_used)]
+fn shown_key_prefix(key: &str) -> String {
+    Regex::new(&format!("^pp_[^_]{{1,{ENV_NAME_MAX_LEN}}}_"))
+        .expect("the key prefix pattern compiles")
+        .find(key)
+        .map_or_else(|| "none".to_owned(), |m| format!("{}…", m.as_str()))
 }
