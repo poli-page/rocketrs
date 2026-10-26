@@ -95,12 +95,29 @@ fn malformed_keys_ignite_with_one_warning_that_hides_the_secret() {
             "pp_sandbox_x".into(),
             "pp_sandbox_…".into(),
         ),
-        // Environment names: uppercase, leading digit, double hyphen,
-        // leading or trailing hyphen, too long, empty.
+        // Environment names: uppercase (first, inner, after a hyphen),
+        // punctuation, non-ASCII, leading digit, double hyphen, leading or
+        // trailing hyphen, too long, empty.
+        (format!("pp_sa.box_{HEX}"), HEX.into(), "pp_sa.box_…".into()),
+        (
+            format!("pp_sändbox_{HEX}"),
+            HEX.into(),
+            "pp_sändbox_…".into(),
+        ),
         (
             format!("pp_Sandbox_{HEX}"),
             HEX.into(),
             "pp_Sandbox_…".into(),
+        ),
+        (
+            format!("pp_sAndbox_{HEX}"),
+            HEX.into(),
+            "pp_sAndbox_…".into(),
+        ),
+        (
+            format!("pp_eu-Prod_{HEX}"),
+            HEX.into(),
+            "pp_eu-Prod_…".into(),
         ),
         (format!("pp_2fa_{HEX}"), HEX.into(), "pp_2fa_…".into()),
         (format!("pp_a--b_{HEX}"), HEX.into(), "pp_a--b_…".into()),
@@ -154,6 +171,12 @@ fn malformed_keys_ignite_with_one_warning_that_hides_the_secret() {
             format!("pp_{ENV_20}_…"),
         ),
         (format!("pp_{ENV_21}_x"), ENV_21.into(), "none".into()),
+        // The bound is in bytes: 11 characters, 22 bytes.
+        (
+            format!("pp_{}_x", "ä".repeat(11)),
+            "ä".repeat(11),
+            "none".into(),
+        ),
     ];
     for (key, secret, shown) in cases {
         let (ignited, out) = ignite_with_key(Some(&key));

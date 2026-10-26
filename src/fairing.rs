@@ -4,7 +4,6 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use regex::Regex;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Rocket};
 
@@ -13,13 +12,6 @@ use crate::tracing_bridge;
 
 /// Longest environment name the API issues keys for.
 const ENV_NAME_MAX_LEN: usize = 20;
-
-/// The SDK contract's full-key regex
-/// `^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$`
-/// without its lookahead, which the `regex` crate does not support:
-/// [`well_formed_api_key`] checks the captured environment name against
-/// [`ENV_NAME_MAX_LEN`] instead.
-const API_KEY_PATTERN: &str = r"^pp_([a-z][a-z0-9]*(?:-[a-z0-9]+)*)_[0-9a-f]{32}$";
 
 /// Rocket fairing that builds a `poli_page::PoliPage` at ignite-time and
 /// inserts it into managed state as [`PoliPageClient`].
@@ -175,23 +167,39 @@ fn build_from_env() -> Result<poli_page::PoliPage, String> {
     builder.build().map_err(|e| e.to_string())
 }
 
-// Both patterns are fixed and the tests compile them on every run, so
-// `Regex::new` cannot fail here.
-#[allow(clippy::expect_used)]
+/// Splits `pp_{env}_{secret}` at the first `_` after `pp_`.
+fn split_api_key(key: &str) -> Option<(&str, &str)> {
+    key.strip_prefix("pp_")?.split_once('_')
+}
+
+/// Whether `key` matches the SDK contract's full-key regex
+/// `^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$`.
 fn well_formed_api_key(key: &str) -> bool {
-    Regex::new(API_KEY_PATTERN)
-        .expect("API_KEY_PATTERN compiles")
-        .captures(key)
-        .is_some_and(|c| c[1].len() <= ENV_NAME_MAX_LEN)
+    let Some((env, secret)) = split_api_key(key) else {
+        return false;
+    };
+    env.len() <= ENV_NAME_MAX_LEN
+        && env.starts_with(|c: char| c.is_ascii_lowercase())
+        && env.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        })
+        && secret.len() == 32
+        && secret
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// The most of a key that may be logged: its `pp_{env}_` part followed by
-/// `…`, or `none`. An `{env}` longer than any environment name is not shown,
+/// `…`, or `none`. An `{env}` longer (in bytes) than any environment name is not shown,
 /// since it may be the secret itself.
-#[allow(clippy::expect_used)]
 fn shown_key_prefix(key: &str) -> String {
-    Regex::new(&format!("^pp_[^_]{{1,{ENV_NAME_MAX_LEN}}}_"))
-        .expect("the key prefix pattern compiles")
-        .find(key)
-        .map_or_else(|| "none".to_owned(), |m| format!("{}…", m.as_str()))
+    match split_api_key(key) {
+        Some((env, _)) if (1..=ENV_NAME_MAX_LEN).contains(&env.len()) => {
+            format!("pp_{env}_…")
+        }
+        _ => "none".to_owned(),
+    }
 }
