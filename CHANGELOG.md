@@ -4,6 +4,9 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
+### Changed
+- MSRV raised from 1.75 to 1.93, the `rust-version` of the `poli-page` SDK this crate depends on; 1.75 could never build it. CI's MSRV job now really builds with 1.93 instead of the `rust-toolchain.toml` stable.
+
 ### Fixed
 - `PdfResponse` / `headers::content_disposition`: control characters (CR/LF, TAB, DEL, C1) are now stripped from the `Content-Disposition` filename instead of surviving as `_` in the ASCII fallback and as `%0D%0A`-style escapes in `filename*`; `\` and `"` stay escaped as quoted-pairs.
 
