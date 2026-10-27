@@ -131,10 +131,12 @@ fn build_from_env() -> Result<poli_page::PoliPage, String> {
                 .to_owned()
         })?;
     if !well_formed_api_key(&api_key) {
+        // No part of the key is logged, not even a grammar-valid `pp_{env}_`:
+        // it may be a mis-pasted secret fragment.
         tracing::warn!(
             target: "poli_page_rocket",
-            key_prefix = ?shown_key_prefix(&api_key),
-            "POLI_PAGE_API_KEY does not match pp_{{environment}}_{{32 lowercase hex}}; \
+            "POLI_PAGE_API_KEY does not match the expected format \
+             pp_{{environment}}_{{32 lowercase hex characters}}; \
              starting anyway, the Poli Page API decides whether the key is valid",
         );
     }
@@ -196,14 +198,4 @@ fn valid_env_name(env: &str) -> bool {
                     .bytes()
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
         })
-}
-
-/// The most of a key that may be logged: its `pp_{env}_` part followed by
-/// `…` when `{env}` is a valid environment name, else `none`, since an
-/// `{env}` that is no environment name may be part of the secret.
-fn shown_key_prefix(key: &str) -> String {
-    match split_api_key(key) {
-        Some((env, _)) if valid_env_name(env) => format!("pp_{env}_…"),
-        _ => "none".to_owned(),
-    }
 }

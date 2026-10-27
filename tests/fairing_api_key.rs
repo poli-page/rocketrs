@@ -1,8 +1,8 @@
 //! `PoliPageFairing::from_env()` only requires a non-empty
 //! `POLI_PAGE_API_KEY`. A key that does not match the contract
 //! `pp_{env}_{32 lowercase hex}` ignites anyway, with exactly one warning
-//! that shows at most the `pp_{env}_` part of the key, and only when `{env}`
-//! is a valid environment name.
+//! that names the expected format and shows no part of the key, not even a
+//! grammar-valid `pp_{env}_` (it may be a mis-pasted secret fragment).
 
 use poli_page_rocket::PoliPageFairing;
 use rocket::local::blocking::Client;
@@ -15,6 +15,11 @@ use common::CaptureWriter;
 const HEX: &str = "0123456789abcdef0123456789abcdef";
 const ENV_20: &str = "abcdefghijklmnopqrst";
 const ENV_21: &str = "abcdefghijklmnopqrstu";
+
+/// The whole malformed-key warning line: a message and no field.
+const MALFORMED_KEY_WARNING: &str = "WARN poli_page_rocket: POLI_PAGE_API_KEY does not match \
+     the expected format pp_{environment}_{32 lowercase hex characters}; starting anyway, \
+     the Poli Page API decides whether the key is valid";
 
 /// Ignites a fairing that reads `POLI_PAGE_API_KEY` (`None`: unset) and
 /// returns whether ignition succeeded, plus everything that was logged.
@@ -44,6 +49,24 @@ fn warnings(out: &str) -> Vec<&str> {
         .collect()
 }
 
+/// Text of `key` that must never be logged: the key, each of its lines, the
+/// `{a}_{b}_` prefix of each line and each `_`-separated part, when three or
+/// more characters long (shorter ones, like `pp` or `x`, occur in the
+/// message).
+fn key_text(key: &str) -> Vec<String> {
+    let mut text = vec![key.to_owned(), key.trim().to_owned()];
+    for line in key.lines() {
+        text.push(line.to_owned());
+        let parts: Vec<&str> = line.split('_').collect();
+        if parts.len() >= 3 {
+            text.push(format!("{}_{}_", parts[0], parts[1]));
+        }
+        text.extend(parts.iter().map(|p| (*p).to_owned()));
+    }
+    text.retain(|t| t.chars().count() >= 3);
+    text
+}
+
 #[test]
 #[serial]
 fn missing_key_fails_ignition_without_warning() {
@@ -64,7 +87,10 @@ fn empty_key_fails_ignition_without_warning() {
     assert!(warnings(&out).is_empty(), "unexpected warning: {out}");
     // The fairing's own check, not the SDK's "api_key is required".
     assert!(
-        out.contains("POLI_PAGE_API_KEY"),
+        out.contains(
+            "POLI_PAGE_API_KEY is not set or empty. \
+             Get a key at https://app.poli.page/settings/api-keys."
+        ),
         "error names the var: {out}"
     );
 }
@@ -84,140 +110,64 @@ fn well_formed_keys_ignite_without_warning() {
 
 #[test]
 #[serial]
-fn malformed_keys_ignite_with_one_warning_that_hides_the_secret() {
+fn malformed_keys_ignite_with_one_warning_that_shows_no_key_text() {
     let upper = HEX.to_uppercase();
     let hex31 = &HEX[..31];
-    let hex33 = format!("{HEX}0");
-    // (key, the part that must never be logged, the key_prefix shown)
-    let cases: Vec<(String, String, String)> = vec![
-        // Secret too short.
-        (
-            "pp_sandbox_x".into(),
-            "pp_sandbox_x".into(),
-            "pp_sandbox_…".into(),
-        ),
+    let hex16 = &HEX[..16];
+    let keys: Vec<String> = vec![
+        // A grammar-valid environment with a bad secret: too short, wrong
+        // case, wrong length, extra characters at either end.
+        "pp_sandbox_x".into(),
+        "pp_eu-prod_x".into(),
+        format!("pp_{ENV_20}_x"),
+        format!("pp_sandbox_{upper}"),
+        format!("pp_sandbox_{hex31}"),
+        format!("pp_sandbox_{HEX}0"),
+        format!("pp_sandbox_{hex31}g"),
+        format!("pp_sandbox_{HEX}x"),
+        format!("xpp_sandbox_{HEX}"),
+        format!("pp_sandbox_s3cr3t_{HEX}"),
+        // A hex fragment in the environment slot is grammar-valid.
+        format!("pp_abc123_{hex16}"),
+        // A trailing newline, or a line before the key.
+        format!("pp_sandbox_{HEX}\n"),
+        format!("pp_sandbox_{HEX}\r\n"),
+        format!("x\npp_sandbox_{HEX}"),
         // Environment names: uppercase (first, inner, after a hyphen),
         // punctuation, non-ASCII, leading digit, double hyphen, leading or
-        // trailing hyphen, too long, empty. None is a valid environment
-        // name, so none is shown.
-        (
-            format!("pp_sa.box_{HEX}"),
-            "pp_sa.box_".into(),
-            "none".into(),
-        ),
-        (
-            format!("pp_sändbox_{HEX}"),
-            "pp_sändbox_".into(),
-            "none".into(),
-        ),
-        (
-            format!("pp_Sandbox_{HEX}"),
-            "pp_Sandbox_".into(),
-            "none".into(),
-        ),
-        (
-            format!("pp_sAndbox_{HEX}"),
-            "pp_sAndbox_".into(),
-            "none".into(),
-        ),
-        (
-            format!("pp_eu-Prod_{HEX}"),
-            "pp_eu-Prod_".into(),
-            "none".into(),
-        ),
-        (format!("pp_2fa_{HEX}"), "pp_2fa_".into(), "none".into()),
-        (
-            format!("pp_0123456789abcdef_{HEX}"),
-            "pp_0123456789abcdef_".into(),
-            "none".into(),
-        ),
-        (format!("pp_a--b_{HEX}"), "pp_a--b_".into(), "none".into()),
-        (format!("pp_-ab_{HEX}"), "pp_-ab_".into(), "none".into()),
-        (format!("pp_ab-_{HEX}"), "pp_ab-_".into(), "none".into()),
-        (format!("pp_{ENV_21}_{HEX}"), ENV_21.into(), "none".into()),
-        (format!("pp__{HEX}"), "pp__".into(), "none".into()),
-        // A valid environment name is shown, hyphens included.
-        (
-            "pp_eu-prod_x".into(),
-            "pp_eu-prod_x".into(),
-            "pp_eu-prod_…".into(),
-        ),
-        // Secret: wrong case, wrong length, extra characters at either end.
-        (
-            format!("pp_sandbox_{upper}"),
-            upper.clone(),
-            "pp_sandbox_…".into(),
-        ),
-        (
-            format!("pp_sandbox_{hex31}"),
-            hex31.into(),
-            "pp_sandbox_…".into(),
-        ),
-        (
-            format!("pp_sandbox_{hex33}"),
-            HEX.into(),
-            "pp_sandbox_…".into(),
-        ),
-        (
-            format!("pp_sandbox_{hex31}g"),
-            hex31.into(),
-            "pp_sandbox_…".into(),
-        ),
-        (
-            format!("pp_sandbox_{HEX}x"),
-            HEX.into(),
-            "pp_sandbox_…".into(),
-        ),
-        (format!("xpp_sandbox_{HEX}"), HEX.into(), "none".into()),
-        // A trailing newline, or a line before the key.
-        (
-            format!("pp_sandbox_{HEX}\n"),
-            HEX.into(),
-            "pp_sandbox_…".into(),
-        ),
-        (
-            format!("pp_sandbox_{HEX}\r\n"),
-            HEX.into(),
-            "pp_sandbox_…".into(),
-        ),
-        (format!("x\npp_sandbox_{HEX}"), HEX.into(), "none".into()),
-        // Only the first `_`-delimited part after `pp_` is shown.
-        (
-            format!("pp_sandbox_s3cr3t_{HEX}"),
-            "s3cr3t".into(),
-            "pp_sandbox_…".into(),
-        ),
-        // No environment at all: the secret right after `pp_`.
-        (format!("pp_{HEX}"), HEX.into(), "none".into()),
-        // Not a Poli Page key.
-        (format!("sk_live_{HEX}"), HEX.into(), "none".into()),
-        (format!("px_sandbox_{HEX}"), HEX.into(), "none".into()),
-        (format!("PP_sandbox_{HEX}"), HEX.into(), "none".into()),
-        // The shown prefix stops at a 20-character environment name.
-        (
-            format!("pp_{ENV_20}_x"),
-            format!("pp_{ENV_20}_x"),
-            format!("pp_{ENV_20}_…"),
-        ),
-        (format!("pp_{ENV_21}_x"), ENV_21.into(), "none".into()),
-        // The bound is in bytes: 11 characters, 22 bytes.
-        (
-            format!("pp_{}_x", "ä".repeat(11)),
-            "ä".repeat(11),
-            "none".into(),
-        ),
+        // trailing hyphen, too long (in bytes too), empty.
+        format!("pp_sa.box_{HEX}"),
+        format!("pp_sändbox_{HEX}"),
+        format!("pp_Sandbox_{HEX}"),
+        format!("pp_sAndbox_{HEX}"),
+        format!("pp_eu-Prod_{HEX}"),
+        format!("pp_2fa_{HEX}"),
+        format!("pp_0123456789abcdef_{HEX}"),
+        format!("pp_a--b_{HEX}"),
+        format!("pp_-ab_{HEX}"),
+        format!("pp_ab-_{HEX}"),
+        format!("pp_{ENV_21}_{HEX}"),
+        format!("pp_{ENV_21}_x"),
+        format!("pp_{}_x", "ä".repeat(11)),
+        format!("pp__{HEX}"),
+        // No environment at all, or not a Poli Page key.
+        format!("pp_{HEX}"),
+        format!("sk_live_{HEX}"),
+        format!("px_sandbox_{HEX}"),
+        format!("PP_sandbox_{HEX}"),
     ];
-    for (key, secret, shown) in cases {
+    for key in keys {
         let (ignited, out) = ignite_with_key(Some(&key));
-        assert!(ignited, "{key} did not ignite: {out}");
+        assert!(ignited, "{key:?} did not ignite: {out}");
         let warned = warnings(&out);
-        assert_eq!(warned.len(), 1, "{key}: expected one warning: {out}");
-        assert!(
-            warned[0].contains(&format!("key_prefix={shown:?}")),
-            "{key}: expected key_prefix={shown:?}: {out}"
+        assert_eq!(warned.len(), 1, "{key:?}: expected one warning: {out}");
+        assert_eq!(
+            warned[0].trim(),
+            MALFORMED_KEY_WARNING,
+            "{key:?}: the warning has no field, so no key text"
         );
-        assert!(!out.contains(&key), "{key}: key logged: {out}");
-        assert!(!out.contains(&secret), "{key}: secret logged: {out}");
-        assert!(!out.contains(HEX), "{key}: secret logged: {out}");
+        for text in key_text(&key) {
+            assert!(!out.contains(&text), "{key:?}: {text:?} logged: {out}");
+        }
     }
 }
