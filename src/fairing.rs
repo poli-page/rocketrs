@@ -178,6 +178,16 @@ fn well_formed_api_key(key: &str) -> bool {
     let Some((env, secret)) = split_api_key(key) else {
         return false;
     };
+    valid_env_name(env)
+        && secret.len() == 32
+        && secret
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+/// Whether `env` is an environment name: a lowercase letter, then lowercase
+/// letters, digits and single inner hyphens, at most 20 characters.
+fn valid_env_name(env: &str) -> bool {
     env.len() <= ENV_NAME_MAX_LEN
         && env.starts_with(|c: char| c.is_ascii_lowercase())
         && env.split('-').all(|part| {
@@ -186,20 +196,14 @@ fn well_formed_api_key(key: &str) -> bool {
                     .bytes()
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
         })
-        && secret.len() == 32
-        && secret
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// The most of a key that may be logged: its `pp_{env}_` part followed by
-/// `…`, or `none`. An `{env}` longer (in bytes) than any environment name is not shown,
-/// since it may be the secret itself.
+/// `…` when `{env}` is a valid environment name, else `none`, since an
+/// `{env}` that is no environment name may be part of the secret.
 fn shown_key_prefix(key: &str) -> String {
     match split_api_key(key) {
-        Some((env, _)) if (1..=ENV_NAME_MAX_LEN).contains(&env.len()) => {
-            format!("pp_{env}_…")
-        }
+        Some((env, _)) if valid_env_name(env) => format!("pp_{env}_…"),
         _ => "none".to_owned(),
     }
 }

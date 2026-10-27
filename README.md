@@ -47,7 +47,7 @@ Set the API key before booting Rocket. Grab one from the [Poli Page dashboard](h
 POLI_PAGE_API_KEY=pp_sandbox_xxx
 ```
 
-The fairing only requires the key to be set and non-empty: the Poli Page API is the only authority on keys. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one warning under the `poli_page_rocket` target (showing at most its `pp_{environment}_` part, never the secret), and Rocket ignites anyway, letting the API answer (`401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`).
+The fairing only requires the key to be set and non-empty: the Poli Page API is the only authority on keys. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one warning under the `poli_page_rocket` target (showing at most its `pp_{environment}_` part, and only when that part is a valid environment name, never the secret), and Rocket ignites anyway, letting the API answer (`401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`).
 
 The crate reads from `std::env` only. The example app loads a `.env` file via [`dotenvy`](https://crates.io/crates/dotenvy); your application is free to do the same.
 

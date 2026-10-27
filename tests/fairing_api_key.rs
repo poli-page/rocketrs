@@ -1,7 +1,8 @@
 //! `PoliPageFairing::from_env()` only requires a non-empty
 //! `POLI_PAGE_API_KEY`. A key that does not match the contract
 //! `pp_{env}_{32 lowercase hex}` ignites anyway, with exactly one warning
-//! that shows at most the `pp_{env}_` part of the key.
+//! that shows at most the `pp_{env}_` part of the key, and only when `{env}`
+//! is a valid environment name.
 
 use poli_page_rocket::PoliPageFairing;
 use rocket::local::blocking::Client;
@@ -97,34 +98,50 @@ fn malformed_keys_ignite_with_one_warning_that_hides_the_secret() {
         ),
         // Environment names: uppercase (first, inner, after a hyphen),
         // punctuation, non-ASCII, leading digit, double hyphen, leading or
-        // trailing hyphen, too long, empty.
-        (format!("pp_sa.box_{HEX}"), HEX.into(), "pp_sa.box_…".into()),
+        // trailing hyphen, too long, empty. None is a valid environment
+        // name, so none is shown.
+        (
+            format!("pp_sa.box_{HEX}"),
+            "pp_sa.box_".into(),
+            "none".into(),
+        ),
         (
             format!("pp_sändbox_{HEX}"),
-            HEX.into(),
-            "pp_sändbox_…".into(),
+            "pp_sändbox_".into(),
+            "none".into(),
         ),
         (
             format!("pp_Sandbox_{HEX}"),
-            HEX.into(),
-            "pp_Sandbox_…".into(),
+            "pp_Sandbox_".into(),
+            "none".into(),
         ),
         (
             format!("pp_sAndbox_{HEX}"),
-            HEX.into(),
-            "pp_sAndbox_…".into(),
+            "pp_sAndbox_".into(),
+            "none".into(),
         ),
         (
             format!("pp_eu-Prod_{HEX}"),
-            HEX.into(),
-            "pp_eu-Prod_…".into(),
+            "pp_eu-Prod_".into(),
+            "none".into(),
         ),
-        (format!("pp_2fa_{HEX}"), HEX.into(), "pp_2fa_…".into()),
-        (format!("pp_a--b_{HEX}"), HEX.into(), "pp_a--b_…".into()),
-        (format!("pp_-ab_{HEX}"), HEX.into(), "pp_-ab_…".into()),
-        (format!("pp_ab-_{HEX}"), HEX.into(), "pp_ab-_…".into()),
-        (format!("pp_{ENV_21}_{HEX}"), HEX.into(), "none".into()),
-        (format!("pp__{HEX}"), HEX.into(), "none".into()),
+        (format!("pp_2fa_{HEX}"), "pp_2fa_".into(), "none".into()),
+        (
+            format!("pp_0123456789abcdef_{HEX}"),
+            "pp_0123456789abcdef_".into(),
+            "none".into(),
+        ),
+        (format!("pp_a--b_{HEX}"), "pp_a--b_".into(), "none".into()),
+        (format!("pp_-ab_{HEX}"), "pp_-ab_".into(), "none".into()),
+        (format!("pp_ab-_{HEX}"), "pp_ab-_".into(), "none".into()),
+        (format!("pp_{ENV_21}_{HEX}"), ENV_21.into(), "none".into()),
+        (format!("pp__{HEX}"), "pp__".into(), "none".into()),
+        // A valid environment name is shown, hyphens included.
+        (
+            "pp_eu-prod_x".into(),
+            "pp_eu-prod_x".into(),
+            "pp_eu-prod_…".into(),
+        ),
         // Secret: wrong case, wrong length, extra characters at either end.
         (
             format!("pp_sandbox_{upper}"),
@@ -152,6 +169,18 @@ fn malformed_keys_ignite_with_one_warning_that_hides_the_secret() {
             "pp_sandbox_…".into(),
         ),
         (format!("xpp_sandbox_{HEX}"), HEX.into(), "none".into()),
+        // A trailing newline, or a line before the key.
+        (
+            format!("pp_sandbox_{HEX}\n"),
+            HEX.into(),
+            "pp_sandbox_…".into(),
+        ),
+        (
+            format!("pp_sandbox_{HEX}\r\n"),
+            HEX.into(),
+            "pp_sandbox_…".into(),
+        ),
+        (format!("x\npp_sandbox_{HEX}"), HEX.into(), "none".into()),
         // Only the first `_`-delimited part after `pp_` is shown.
         (
             format!("pp_sandbox_s3cr3t_{HEX}"),
@@ -189,5 +218,6 @@ fn malformed_keys_ignite_with_one_warning_that_hides_the_secret() {
         );
         assert!(!out.contains(&key), "{key}: key logged: {out}");
         assert!(!out.contains(&secret), "{key}: secret logged: {out}");
+        assert!(!out.contains(HEX), "{key}: secret logged: {out}");
     }
 }

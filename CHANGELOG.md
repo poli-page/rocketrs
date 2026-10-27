@@ -7,7 +7,7 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 Breaking: adopts the environments contract of the `poli-page` SDK (environment keys, no template versions, no render preview).
 
 ### Changed
-- `PoliPageFairing::from_env()` accepts any non-empty `POLI_PAGE_API_KEY` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`, …) instead of failing ignition unless the key starts with `pp_test_` or `pp_live_`. A missing or empty key still fails ignition. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one `tracing` warning under the `poli_page_rocket` target, showing at most its `pp_{environment}_` part, and ignites anyway: the API decides whether the key is valid.
+- `PoliPageFairing::from_env()` accepts any non-empty `POLI_PAGE_API_KEY` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`, …) instead of failing ignition unless the key starts with `pp_test_` or `pp_live_`. A missing or empty key still fails ignition. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one `tracing` warning under the `poli_page_rocket` target, showing at most its `pp_{environment}_` part (only when that part is a valid environment name), and ignites anyway: the API decides whether the key is valid.
 - Builds against the `poli-page` SDK whose render input is `RenderInput` with no `version`; the crate root re-exports `RenderInput`.
 - Example app: renders send no `version`, and `GET /errors/not-found` (template `does-not-exist`, answering `404` `TEMPLATE_NOT_FOUND` through the `PoliPageError` responder) replaces `GET /errors/bad-version`.
 
