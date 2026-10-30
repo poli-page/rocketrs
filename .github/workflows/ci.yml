@@ -16,7 +16,7 @@ jobs:
       # rust-toolchain.toml pins stable; without this every leg builds with stable.
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -72,7 +72,7 @@ jobs:
               echo "present=false" >> "$GITHUB_OUTPUT"
               ;;
           esac
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.key.outputs.present == 'true'
       - uses: dtolnay/rust-toolchain@master
         if: steps.key.outputs.present == 'true'
