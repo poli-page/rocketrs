@@ -12,6 +12,7 @@ Breaking: requires the `poli-page` SDK 0.11.0, the first release with the enviro
 - The example app is also a library target (`app(fairing)`, `rocket()`), so tests mount the same routes.
 
 ### Changed
+- CI: the live API job runs on `main` (and on demand) against the production API with the sandbox key from the `POLI_PAGE_API_KEY` secret, and skips with a notice when the key is absent or not a `pp_sandbox_` key.
 - Depends on `poli-page` `0.11.0` from crates.io (was `0.9.0`).
 - MSRV raised from 1.75 to 1.93, the `rust-version` of the `poli-page` SDK this crate depends on; 1.75 could never build it. CI's MSRV job now really builds with 1.93 instead of the `rust-toolchain.toml` stable.
 - Error answers: the body is the SDK's `to_payload()`, which adds `status` and carries the bare message (no `Display` prefix). `Error::Connection` answers `503` (was `502`), `Error::Aborted` `500` (was `503`), and `Error::Download` the storage status, or `500` without one (was `502`).
