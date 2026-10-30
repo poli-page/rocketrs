@@ -18,10 +18,9 @@
 //!
 //! #[get("/welcome.pdf")]
 //! async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
-//!     let bytes = client.render().pdf(poli_page::ProjectModeInput {
+//!     let bytes = client.render().pdf(poli_page::RenderInput {
 //!         project: "getting-started".into(),
 //!         template: "welcome".into(),
-//!         version: Some("1.0.0".into()),
 //!         data: json!({ "name": "World" }),
 //!         ..Default::default()
 //!     }).await?;
@@ -55,8 +54,8 @@ pub use state::{PoliPage, PoliPageClient};
 /// only needs `use poli_page_rocket::...`. Mirrors the pattern from sibling
 /// integrations.
 pub use poli_page::{
-    DocumentDescriptor, DocumentPreviewResult, Error, InlineModeInput, PoliPage as SdkPoliPage,
-    PreviewResult, ProjectModeInput, RenderInput, RetryEvent, ThumbnailFormat, ThumbnailOptions,
+    DocumentDescriptor, DocumentPreviewResult, Error, PoliPage as SdkPoliPage, RenderInput,
+    RetryEvent, ThumbnailFormat, ThumbnailOptions,
 };
 
 #[doc(hidden)]

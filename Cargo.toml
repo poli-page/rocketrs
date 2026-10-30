@@ -2,7 +2,7 @@
 name          = "poli-page-rocket"
 version       = "0.1.0"
 edition       = "2021"
-rust-version  = "1.75"
+rust-version  = "1.93"
 authors       = ["Poli Page"]
 description   = "Rocket.rs fairing and responders for the Poli Page PDF rendering API"
 homepage      = "https://poli.page"
@@ -17,7 +17,6 @@ exclude       = [
     "/example-app",
     "/tests",
     "/docs",
-    "/CLAUDE.md",
     "/rust-toolchain.toml",
 ]
 
@@ -26,7 +25,7 @@ name = "poli_page_rocket"
 path = "src/lib.rs"
 
 [dependencies]
-poli-page    = "0.9.0"
+poli-page    = "0.11.0"
 rocket       = { version = "0.5", default-features = false }
 tracing      = "0.1"
 bytes        = "1.7"
@@ -39,16 +38,11 @@ tokio              = { version = "1.40", features = ["macros", "rt-multi-thread"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serial_test        = "3.1"
 
-# Local-dev override while the SDK is pre-stable. Remove on the same PR
-# that bumps the requirement to a published stable release.
-[patch.crates-io]
-poli-page = { path = "../sdk-rust" }
-
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 cargo    = { level = "warn", priority = -1 }
 # unwrap_used / expect_used are deny-listed for src/ only via #![deny] in
-# src/lib.rs — tests are free to unwrap. See CLAUDE.md §10.2.
+# src/lib.rs — tests are free to unwrap.
 # Quiet a few pedantic lints the SDK pattern intentionally accepts:
 module_name_repetitions = "allow"
 missing_errors_doc      = "allow"

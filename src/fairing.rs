@@ -7,10 +7,12 @@ use std::time::Duration;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Rocket};
 
+use crate::errors::ErrorHandlerSetting;
 use crate::state::PoliPageClient;
 use crate::tracing_bridge;
 
-const KEY_PATTERN_PREFIXES: &[&str] = &["pp_test_", "pp_live_"];
+/// Longest environment name the API issues keys for.
+const ENV_NAME_MAX_LEN: usize = 20;
 
 /// Rocket fairing that builds a `poli_page::PoliPage` at ignite-time and
 /// inserts it into managed state as [`PoliPageClient`].
@@ -19,6 +21,10 @@ const KEY_PATTERN_PREFIXES: &[&str] = &["pp_test_", "pp_live_"];
 /// - [`from_env`](Self::from_env) — read all options from environment variables.
 /// - [`new`](Self::new) — take a fully-configured `PoliPageBuilder`.
 /// - [`with_client`](Self::with_client) — wrap an already-built client.
+///
+/// The fairing also turns on the crate's error handler, the
+/// [`PoliPageError`](crate::PoliPageError) responder;
+/// [`error_handler(false)`](Self::error_handler) turns it off.
 #[must_use]
 pub struct PoliPageFairing {
     // Why: Fairing::on_ignite takes &self in Rocket 0.5 even though it
@@ -26,6 +32,7 @@ pub struct PoliPageFairing {
     // Source from behind a shared reference. Ignite runs at most once per
     // attach so contention is impossible.
     source: Mutex<Source>,
+    error_handler: bool,
 }
 
 enum Source {
@@ -37,10 +44,14 @@ enum Source {
 
 impl PoliPageFairing {
     /// Read all options from environment variables (see spec §6.3).
-    /// Ignite fails if `POLI_PAGE_API_KEY` is missing or malformed.
+    /// Ignite fails if `POLI_PAGE_API_KEY` is missing or empty. Any other
+    /// value ignites: the Poli Page API is the only authority on keys, so a
+    /// key that does not look like `pp_{environment}_{32 lowercase hex}` only
+    /// logs one warning.
     pub fn from_env() -> Self {
         Self {
             source: Mutex::new(Source::Env),
+            error_handler: true,
         }
     }
 
@@ -48,6 +59,7 @@ impl PoliPageFairing {
     pub fn new(builder: poli_page::PoliPageBuilder) -> Self {
         Self {
             source: Mutex::new(Source::Builder(Box::new(builder))),
+            error_handler: true,
         }
     }
 
@@ -55,7 +67,20 @@ impl PoliPageFairing {
     pub fn with_client(client: poli_page::PoliPage) -> Self {
         Self {
             source: Mutex::new(Source::Built(client)),
+            error_handler: true,
         }
+    }
+
+    /// Turn the error handler on (the default) or off.
+    ///
+    /// On, a route returning `Err(PoliPageError)` answers the SDK error's
+    /// `to_payload()` as JSON, `{ code, message, status, requestId }`, with
+    /// its status (`500` when the payload has none). Off, the responder
+    /// writes no body and hands that status to Rocket's catchers, so your
+    /// own `#[catch]` handlers (or Rocket's defaults) answer.
+    pub fn error_handler(mut self, enabled: bool) -> Self {
+        self.error_handler = enabled;
+        self
     }
 }
 
@@ -113,19 +138,32 @@ impl Fairing for PoliPageFairing {
                 return Err(rocket);
             }
         };
-        Ok(rocket.manage(PoliPageClient(client)))
+        Ok(rocket
+            .manage(PoliPageClient(client))
+            .manage(ErrorHandlerSetting {
+                enabled: self.error_handler,
+            }))
     }
 }
 
 fn build_from_env() -> Result<poli_page::PoliPage, String> {
     let api_key = std::env::var("POLI_PAGE_API_KEY")
-        .map_err(|_| "POLI_PAGE_API_KEY is not set".to_owned())?;
-    if !KEY_PATTERN_PREFIXES.iter().any(|p| api_key.starts_with(p)) {
-        return Err(format!(
-            "POLI_PAGE_API_KEY must start with pp_test_ or pp_live_; got prefix {:?}. \
-             Get a key at https://app.poli.page/settings/api-keys.",
-            api_key.chars().take(8).collect::<String>(),
-        ));
+        .ok()
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| {
+            "POLI_PAGE_API_KEY is not set or empty. \
+             Get a key at https://app.poli.page/settings/api-keys."
+                .to_owned()
+        })?;
+    if !well_formed_api_key(&api_key) {
+        // No part of the key is logged, not even a grammar-valid `pp_{env}_`:
+        // it may be a mis-pasted secret fragment.
+        tracing::warn!(
+            target: "poli_page_rocket",
+            "POLI_PAGE_API_KEY does not match the expected format \
+             pp_{{environment}}_{{32 lowercase hex characters}}; \
+             starting anyway, the Poli Page API decides whether the key is valid",
+        );
     }
     let mut builder = poli_page::PoliPage::builder()
         .api_key(api_key)
@@ -154,4 +192,35 @@ fn build_from_env() -> Result<poli_page::PoliPage, String> {
         builder = builder.retry_delay(Duration::from_millis(ms));
     }
     builder.build().map_err(|e| e.to_string())
+}
+
+/// Splits `pp_{env}_{secret}` at the first `_` after `pp_`.
+fn split_api_key(key: &str) -> Option<(&str, &str)> {
+    key.strip_prefix("pp_")?.split_once('_')
+}
+
+/// Whether `key` matches the SDK contract's full-key regex
+/// `^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$`.
+fn well_formed_api_key(key: &str) -> bool {
+    let Some((env, secret)) = split_api_key(key) else {
+        return false;
+    };
+    valid_env_name(env)
+        && secret.len() == 32
+        && secret
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+/// Whether `env` is an environment name: a lowercase letter, then lowercase
+/// letters, digits and single inner hyphens, at most 20 characters.
+fn valid_env_name(env: &str) -> bool {
+    env.len() <= ENV_NAME_MAX_LEN
+        && env.starts_with(|c: char| c.is_ascii_lowercase())
+        && env.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        })
 }

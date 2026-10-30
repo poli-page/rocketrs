@@ -17,7 +17,7 @@ impl PoliPageClient {
         &self.0
     }
 
-    /// Borrow the `render` namespace (`pdf`, `pdf_stream`, `preview`, `document`).
+    /// Borrow the `render` namespace (`pdf`, `pdf_stream`, `document`).
     #[must_use = "borrowing the render namespace has no effect on its own"]
     pub fn render(&self) -> &poli_page::Render {
         &self.0.render

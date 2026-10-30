@@ -10,57 +10,60 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ['stable', 'beta', '1.75']
+        rust: ['stable', 'beta', '1.93']
+    env:
+      # rust-toolchain.toml pins stable; without this every leg builds with stable.
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: rocketrs
-      - uses: actions/checkout@v4
-        with:
-          repository: poli-page/sdk-rust
-          path: sdk-rust
-          ref: main
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: rocketrs
+          workspaces: |
+            .
+            example-app
+      - name: Toolchain
+        run: rustc -V && cargo -V
       - name: Format
-        working-directory: rocketrs
         run: cargo fmt --check
-        if: hashFiles('rocketrs/Cargo.toml') != ''
       - name: Clippy
-        working-directory: rocketrs
         run: cargo clippy --all-targets -- -D warnings
-        if: hashFiles('rocketrs/Cargo.toml') != ''
+      - name: API contract
+        id: contract
+        uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0
       - name: Test
-        working-directory: rocketrs
+        env:
+          POLI_CONTRACT: ${{ steps.contract.outputs.path }}
         run: cargo test
-        if: hashFiles('rocketrs/Cargo.toml') != ''
       - name: Doc
-        working-directory: rocketrs
         run: cargo doc --no-deps
-        if: hashFiles('rocketrs/Cargo.toml') != ''
+      - name: Example app format
+        working-directory: example-app
+        run: cargo fmt --check
+      - name: Example app clippy
+        working-directory: example-app
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Example app build
+        working-directory: example-app
+        run: cargo build --bins
+      - name: Example app tests and API contract cases
+        working-directory: example-app
+        env:
+          POLI_CONTRACT: ${{ steps.contract.outputs.path }}
+        run: cargo test
 
   integration:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: rocketrs
-      - uses: actions/checkout@v4
-        with:
-          repository: poli-page/sdk-rust
-          path: sdk-rust
-          ref: main
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
       - name: Integration test against develop API
-        working-directory: rocketrs
         env:
           POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_DEVELOP_API_KEY }}
         run: cargo test -- --ignored

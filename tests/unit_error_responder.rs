@@ -12,52 +12,59 @@ fn make_error(variant: &str) -> Error {
     match variant {
         "bad-request" => Error::BadRequest {
             status: 400,
-            code: "INVALID_VERSION_FORMAT".into(),
+            code: "VALIDATION_ERROR".into(),
             message: "bad".into(),
             request_id: Some("req_1".into()),
+            source: None,
         },
         "auth" => Error::Auth {
             status: 401,
             code: "INVALID_API_KEY".into(),
             message: "x".into(),
             request_id: None,
+            source: None,
         },
         "perm" => Error::PermissionDenied {
             status: 403,
             code: "FORBIDDEN".into(),
             message: "x".into(),
             request_id: None,
+            source: None,
         },
         "not-found" => Error::NotFound {
             status: 404,
             code: "NOT_FOUND".into(),
             message: "x".into(),
             request_id: None,
+            source: None,
         },
         "gone" => Error::Gone {
             status: 410,
-            code: "GONE".into(),
+            code: "DOCUMENT_GONE".into(),
             message: "x".into(),
             request_id: None,
+            source: None,
         },
         "rate" => Error::RateLimited {
             status: 429,
             code: "QUOTA_EXCEEDED".into(),
             message: "x".into(),
             request_id: None,
+            source: None,
         },
         "api503" => Error::Api {
             status: 503,
             code: "INTERNAL_ERROR".into(),
             message: "x".into(),
             request_id: None,
+            source: None,
         },
         "conn" => Error::Connection {
             message: "dns".into(),
             source: Box::<dyn std::error::Error + Send + Sync>::from("inner"),
         },
         "timeout" => Error::Timeout {
-            timeout: Duration::from_secs(60),
+            timeout: Duration::from_mins(1),
         },
         "aborted" => Error::Aborted,
         "invalid-options" => Error::InvalidOptions {
@@ -105,7 +112,7 @@ async fn bad_request_maps_to_status_400_with_code_and_request_id() {
         Some("private, no-store")
     );
     let j = body(r).await;
-    assert_eq!(j["code"], "INVALID_VERSION_FORMAT");
+    assert_eq!(j["code"], "VALIDATION_ERROR");
     // Message is the bare reason from the variant, not the Display prefix.
     assert_eq!(j["message"], "bad");
     assert_eq!(j["status"], 400);

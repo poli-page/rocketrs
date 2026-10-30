@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    # Dependabot waits 3 days after a release by default; the API contract
+    # is exempt so a new contract version arrives the next day.
+    cooldown:
+      default-days: 3
+      exclude:
+        - 'poli-page/api-contract'
+    groups:
+      api-contract:
+        patterns:
+          - 'poli-page/api-contract'
+      actions:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'poli-page/api-contract'
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: cargo
+    directory: /example-app
+    schedule:
+      interval: weekly

@@ -2,9 +2,10 @@
 //!
 //! Marked `#[ignore]` so the default `cargo test` skips it. Run with:
 //!     cargo test -- --ignored
-//! Requires `POLI_PAGE_API_KEY` to be set; without it the test exits
-//! cleanly as a no-op rather than failing (so PR contributors without a
-//! key get green local runs even with `--ignored`).
+//! It only runs with a sandbox key (`POLI_PAGE_API_KEY=pp_sandbox_…`), so
+//! it never renders in an environment whose PDFs count toward the quota;
+//! with any other key, or none, it exits cleanly as a no-op (so PR
+//! contributors without a key get green local runs even with `--ignored`).
 
 use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError, PoliPageFairing};
 use rocket::http::Status;
@@ -16,10 +17,9 @@ use serde_json::json;
 async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
     let bytes = client
         .render()
-        .pdf(poli_page::ProjectModeInput {
+        .pdf(poli_page::RenderInput {
             project: "getting-started".into(),
             template: "welcome".into(),
-            version: Some("1.0.0".into()),
             data: json!({ "name": "rocketrs integration test" }),
             ..Default::default()
         })
@@ -28,15 +28,12 @@ async fn welcome(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPage
 }
 
 #[rocket::async_test]
-#[ignore = "real API; opt-in via `cargo test -- --ignored` with POLI_PAGE_API_KEY set"]
+#[ignore = "real API; opt-in via `cargo test -- --ignored` with POLI_PAGE_API_KEY=pp_sandbox_…"]
 async fn render_welcome_against_live_api() {
-    // Treat unset *and* empty as "no key": CI injects the secret via
-    // `POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_DEVELOP_API_KEY }}`, which
-    // expands to an empty string when the secret is absent. `var()` returns
-    // `Ok("")` for an empty-but-set var, so an `is_err()`-only guard would
-    // let the test proceed and ignite the fairing with an invalid key.
-    if std::env::var("POLI_PAGE_API_KEY").map_or(true, |k| k.trim().is_empty()) {
-        eprintln!("POLI_PAGE_API_KEY not set; skipping real-API test.");
+    // A test-only guard against counted environments. It also covers the
+    // CI case where the secret is absent and expands to an empty string.
+    if !std::env::var("POLI_PAGE_API_KEY").is_ok_and(|k| k.starts_with("pp_sandbox_")) {
+        eprintln!("POLI_PAGE_API_KEY is not a pp_sandbox_ key; skipping real-API test.");
         return;
     }
     // Forward POLI_PAGE_TEST_BASE_URL into the env the fairing reads.
