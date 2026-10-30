@@ -16,6 +16,12 @@ tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 bytes              = "1.7"
 
+[dev-dependencies]
+base64        = "0.22"
+httpdate      = "1"
+libtest-mimic = "0.8"
+tokio         = { version = "1", features = ["io-util", "net", "time"] }
+
 [[bin]]
 name = "example-app"
 path = "src/main.rs"
@@ -23,3 +29,9 @@ path = "src/main.rs"
 [[bin]]
 name = "render_to_file"
 path = "src/bin/render_to_file.rs"
+
+# The API contract cases run under their own harness: one test per case id.
+[[test]]
+name    = "contract"
+path    = "tests/contract.rs"
+harness = false
