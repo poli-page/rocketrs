@@ -12,21 +12,15 @@ name: Release
 #
 # crates.io has no "pending publisher": a crate must exist before Trusted
 # Publishing can be configured for it, so the first version (0.11.0) is
-# published by hand with a token (see CONTRIBUTING.md, "Releasing"). The run
-# for its tag then skips the upload and only cuts the GitHub Release.
+# published by hand with a token (see RELEASING.md). The run for its tag then
+# skips the upload and only cuts the GitHub Release.
 #
-# `workflow_dispatch` is a manual fallback: it creates and pushes the tag for
-# you (after the same verify gate + approval), instead of you pushing it.
+# A pushed tag is the only trigger: there is no workflow_dispatch path, so the
+# `crates-io-publish` environment can allow `v*.*.*` tags and nothing else.
 
 on:
   push:
     tags: ['v*.*.*']
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to publish; MUST equal Cargo.toml (e.g. 0.11.1). The tag vX.Y.Z is created and pushed for you."
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -64,18 +58,11 @@ jobs:
       # GitHub Release notes, so it must exist too.
       - name: Resolve version + assert tag matches Cargo.toml and CHANGELOG
         id: resolve
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           CRATE_VERSION="$(cargo metadata --format-version 1 --no-deps \
             | jq -r '.packages[] | select(.name=="poli-page-rocket") | .version')"
-          if [[ "$EVENT_NAME" == "push" ]]; then
-            TAG="${GITHUB_REF_NAME}"
-          else
-            TAG="v${INPUT_VERSION}"
-          fi
+          TAG="${GITHUB_REF_NAME}"
           EXPECTED="v${CRATE_VERSION}"
           if [[ "$TAG" != "$EXPECTED" ]]; then
             echo "::error::Tag '$TAG' does not match Cargo.toml version ('$EXPECTED'). Bump Cargo.toml and re-tag." >&2
@@ -115,6 +102,13 @@ jobs:
         run: |
           test -s "$POLI_CONTRACT" || { echo "::error::API contract file missing: '$POLI_CONTRACT'"; exit 1; }
           cargo test --locked
+      # Advisories only: licence and source checks would need a deny.toml.
+      - name: cargo deny (advisories)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check
+          command-arguments: advisories
+          arguments: ""
       # Builds the packaged crate (Cargo.toml `include` list: src, README,
       # CHANGELOG, licences) on its own, without the example app or tests.
       - run: cargo publish --dry-run --locked
@@ -127,25 +121,12 @@ jobs:
     # Environments with required reviewers. The job blocks here until approved.
     environment: crates-io-publish
     permissions:
-      contents: write   # create the tag (workflow_dispatch) + the GitHub Release
+      contents: write   # create the GitHub Release
       id-token: write   # OIDC exchange for Trusted Publishing
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable @ 2026-05
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-
-      # workflow_dispatch path only: the tag doesn't exist yet, so create it.
-      # (For the tag-push path, the tag is already what triggered this run.)
-      - name: Create and push tag (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          TAG: ${{ needs.verify.outputs.tag }}
-        run: |
-          set -euo pipefail
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
 
       # Idempotency: if this version is already on crates.io (a re-run, or the
       # hand-published 0.11.0 bootstrap), skip the upload but still cut the Release.

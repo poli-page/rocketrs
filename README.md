@@ -164,16 +164,15 @@ POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 
 ## Going further
 
-- [Streaming](docs/streaming.md) — forward `PdfResponse::stream` from `client.render().pdf_stream(...)` with `Transfer-Encoding: chunked` (forthcoming).
-- [Observability](docs/observability.md) — bridge SDK `on_retry` and `on_error` events to `tracing` under the `poli_page_rocket` target (forthcoming).
+- Streaming — forward `PdfResponse::stream` from `client.render().pdf_stream(...)` with `Transfer-Encoding: chunked`.
+- Observability — the default hooks bridge SDK `on_retry` and `on_error` events to `tracing` under the `poli_page_rocket` target.
 - [API reference](https://docs.rs/poli-page-rocket) — every public symbol with its type signature and documentation.
 
 ## Compatibility
 
 | `poli-page-rocket` | Rocket | Rust (MSRV) | `poli-page` SDK |
 |---|---|---|---|
-| unreleased | `0.5` | `1.93` | `0.11.0` |
-| `0.1.x` | `0.5` | `1.93` | `0.9.0` |
+| `0.11.x` | `0.5` | `1.93` | `0.11` |
 
 Rocket `0.5` is the only stable line at the time of writing. MSRV is bumped at most once per minor release.
 
