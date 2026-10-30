@@ -1,4 +1,4 @@
-//! Integration test against the develop API.
+//! Integration test against the live API (the SDK default base URL).
 //!
 //! Marked `#[ignore]` so the default `cargo test` skips it. Run with:
 //!     cargo test -- --ignored
@@ -35,10 +35,6 @@ async fn render_welcome_against_live_api() {
     if !std::env::var("POLI_PAGE_API_KEY").is_ok_and(|k| k.starts_with("pp_sandbox_")) {
         eprintln!("POLI_PAGE_API_KEY is not a pp_sandbox_ key; skipping real-API test.");
         return;
-    }
-    // Forward POLI_PAGE_TEST_BASE_URL into the env the fairing reads.
-    if let Ok(v) = std::env::var("POLI_PAGE_TEST_BASE_URL") {
-        std::env::set_var("POLI_PAGE_BASE_URL", v);
     }
     let r = rocket::build()
         .attach(PoliPageFairing::from_env())
