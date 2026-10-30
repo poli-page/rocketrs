@@ -4,6 +4,9 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
+### Changed
+- The live API CI job passes the optional `POLI_PAGE_BASE_URL` secret to the integration test (unset: the SDK default), next to the `pp_sandbox_` key in `POLI_PAGE_API_KEY`.
+
 ## [0.11.0] - 2026-10-30
 
 First release. The version matches the `poli-page` SDK 0.11.0 it requires. Entries in Changed and Removed describe changes to the pre-release code on `main`; no `0.1.0` was ever published.
