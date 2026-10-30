@@ -10,7 +10,6 @@ use serde_json::json;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = dotenvy::from_path("../../.env");
     let _ = dotenvy::from_path(".env");
 
     let api_key = std::env::var("POLI_PAGE_API_KEY")?;
@@ -25,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RenderInput {
             project: "getting-started".into(),
             template: "welcome".into(),
-            data: json!({ "name": "render_to_file demo" }),
+            data: json!({ "name": "SDK Demo" }),
             ..Default::default()
         },
         path,

@@ -10,7 +10,7 @@ POLI_PAGE_API_KEY=pp_sandbox_...your-key... cargo run --bin example-app
 
 Then open <http://localhost:8000> — interactive dashboard with one button per SDK feature.
 
-Alternatively, put the variables in a `.env` file next to the binary, or two directories up (the directory that holds the repository checkout): `main.rs` calls `dotenvy::from_path("../../.env")` and `dotenvy::from_path(".env")`, so they load automatically. Shell-exported variables always win.
+Alternatively, put the variables in a `.env` file in the directory you run it from (it is gitignored): `main.rs` calls `dotenvy::from_path(".env")`, so they load automatically. Shell-exported variables always win.
 
 ## Standalone binary — SDK demo step 3
 
@@ -27,7 +27,7 @@ cargo run --bin render_to_file
 | GET | `/render/pdf` | `PdfResponse::bytes` |
 | GET | `/render/stream` | `PdfResponse::stream` |
 | POST | `/render/file` | `Json` `{ path, sizeBytes }` after `poli_page::render_to_file` |
-| POST | `/documents` | `Json<DocumentDescriptor>` |
+| POST | `/documents` | `Json` `{ documentId, pageCount, sizeBytes }` after `render.document` |
 | GET | `/documents/<id>` | `DocumentRedirect` (302 → presigned S3 URL) |
 | GET | `/documents/<id>/preview` | `PreviewResponse` |
 | GET | `/documents/<id>/thumbnails` | `Json<Vec<Thumbnail>>` |

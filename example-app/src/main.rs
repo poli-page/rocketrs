@@ -10,15 +10,13 @@
 //! POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 //! ```
 //!
-//! Or put the variables in a `.env` file, next to the binary or two
-//! directories up (the directory that holds the repository checkout), and
-//! `cargo run --bin example-app`: `dotenvy::from_path` is called before
-//! `rocket::build()`, so the file fills in any variable the shell has not
-//! already exported (the shell wins).
+//! Or put the variables in a `.env` file in the directory you run it from
+//! (it is gitignored) and `cargo run --bin example-app`: the file is read
+//! before Rocket starts and fills in any variable the shell has not already
+//! exported (the shell wins).
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
-    let _ = dotenvy::from_path("../../.env");
     let _ = dotenvy::from_path(".env");
 
     tracing_subscriber::fmt()
