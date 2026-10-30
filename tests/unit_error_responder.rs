@@ -64,7 +64,7 @@ fn make_error(variant: &str) -> Error {
             source: Box::<dyn std::error::Error + Send + Sync>::from("inner"),
         },
         "timeout" => Error::Timeout {
-            timeout: Duration::from_secs(60),
+            timeout: Duration::from_mins(1),
         },
         "aborted" => Error::Aborted,
         "invalid-options" => Error::InvalidOptions {

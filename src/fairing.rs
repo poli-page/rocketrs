@@ -7,6 +7,7 @@ use std::time::Duration;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Build, Rocket};
 
+use crate::errors::ErrorHandlerSetting;
 use crate::state::PoliPageClient;
 use crate::tracing_bridge;
 
@@ -20,6 +21,10 @@ const ENV_NAME_MAX_LEN: usize = 20;
 /// - [`from_env`](Self::from_env) — read all options from environment variables.
 /// - [`new`](Self::new) — take a fully-configured `PoliPageBuilder`.
 /// - [`with_client`](Self::with_client) — wrap an already-built client.
+///
+/// The fairing also turns on the crate's error handler, the
+/// [`PoliPageError`](crate::PoliPageError) responder;
+/// [`error_handler(false)`](Self::error_handler) turns it off.
 #[must_use]
 pub struct PoliPageFairing {
     // Why: Fairing::on_ignite takes &self in Rocket 0.5 even though it
@@ -27,6 +32,7 @@ pub struct PoliPageFairing {
     // Source from behind a shared reference. Ignite runs at most once per
     // attach so contention is impossible.
     source: Mutex<Source>,
+    error_handler: bool,
 }
 
 enum Source {
@@ -45,6 +51,7 @@ impl PoliPageFairing {
     pub fn from_env() -> Self {
         Self {
             source: Mutex::new(Source::Env),
+            error_handler: true,
         }
     }
 
@@ -52,6 +59,7 @@ impl PoliPageFairing {
     pub fn new(builder: poli_page::PoliPageBuilder) -> Self {
         Self {
             source: Mutex::new(Source::Builder(Box::new(builder))),
+            error_handler: true,
         }
     }
 
@@ -59,7 +67,20 @@ impl PoliPageFairing {
     pub fn with_client(client: poli_page::PoliPage) -> Self {
         Self {
             source: Mutex::new(Source::Built(client)),
+            error_handler: true,
         }
+    }
+
+    /// Turn the error handler on (the default) or off.
+    ///
+    /// On, a route returning `Err(PoliPageError)` answers the SDK error's
+    /// `to_payload()` as JSON, `{ code, message, status, requestId }`, with
+    /// its status (`500` when the payload has none). Off, the responder
+    /// writes no body and hands that status to Rocket's catchers, so your
+    /// own `#[catch]` handlers (or Rocket's defaults) answer.
+    pub fn error_handler(mut self, enabled: bool) -> Self {
+        self.error_handler = enabled;
+        self
     }
 }
 
@@ -117,7 +138,11 @@ impl Fairing for PoliPageFairing {
                 return Err(rocket);
             }
         };
-        Ok(rocket.manage(PoliPageClient(client)))
+        Ok(rocket
+            .manage(PoliPageClient(client))
+            .manage(ErrorHandlerSetting {
+                enabled: self.error_handler,
+            }))
     }
 }
 

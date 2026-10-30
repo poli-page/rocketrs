@@ -38,7 +38,7 @@ fn on_error_emits_terminal_event() {
     let writer = CaptureWriter::default();
     with_default(writer.subscriber(), || {
         let err = Error::Timeout {
-            timeout: Duration::from_secs(60),
+            timeout: Duration::from_mins(1),
         };
         poli_page_rocket::__internal_tracing_bridge::on_error(&err);
     });
