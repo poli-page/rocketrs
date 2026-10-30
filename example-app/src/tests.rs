@@ -131,6 +131,7 @@ async fn demo_renders_send_no_version() {
         assert_eq!(s.path, "/v1/render");
         assert_eq!(s.body["project"], "getting-started");
         assert_eq!(s.body["template"], "welcome");
+        assert_eq!(s.body["data"], json!({ "name": "SDK Demo" }));
         assert!(s.body.get("version").is_none(), "version sent: {}", s.body);
     }
 }
@@ -171,4 +172,97 @@ async fn stored_document_preview_still_works() {
     );
     assert_eq!(r.into_string().await.unwrap(), "<h1>Stored</h1>");
     assert_eq!(seen.lock().unwrap()[0].method, "GET");
+}
+
+/// Starts a fake API whose render succeeds and whose presigned storage URL
+/// answers `storage_status`.
+fn fake_api_with_failing_storage(storage_status: &'static str) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let base_url = format!("http://{}", listener.local_addr().unwrap());
+    let origin = base_url.clone();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let mut stream = stream.unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut request_line = String::new();
+            reader.read_line(&mut request_line).unwrap();
+            let path = request_line
+                .split_whitespace()
+                .nth(1)
+                .unwrap_or_default()
+                .to_owned();
+            let mut content_length = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if line.trim().is_empty() {
+                    break;
+                }
+                if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    content_length = v.trim().parse().unwrap();
+                }
+            }
+            let mut body = vec![0; content_length];
+            reader.read_exact(&mut body).unwrap();
+            let (status, answer) = if path == "/v1/render" {
+                let descriptor = json!({
+                    "documentId": "doc_1",
+                    "organizationId": "org_1",
+                    "projectId": "p_1",
+                    "projectSlug": "getting-started",
+                    "templateId": "t_1",
+                    "templateSlug": "welcome",
+                    "environment": "sandbox",
+                    "apiKeyId": "k_1",
+                    "format": "A4",
+                    "orientation": "portrait",
+                    "locale": "en-US",
+                    "pageCount": 1,
+                    "sizeBytes": 10,
+                    "metadata": {},
+                    "presignedPdfUrl": format!("{origin}/storage/doc_1.pdf"),
+                    "expiresAt": "2026-09-29T10:00:22.000Z",
+                    "createdAt": "2026-09-29T09:45:22.000Z",
+                    "diagnostics": [],
+                });
+                ("200 OK", descriptor.to_string())
+            } else {
+                (storage_status, "<Error>AccessDenied</Error>".to_owned())
+            };
+            write!(
+                stream,
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{answer}",
+                answer.len(),
+            )
+            .unwrap();
+        }
+    });
+    base_url
+}
+
+/// A download that fails before the PDF stream exists is answered by the
+/// error handler: JSON, none of the PDF headers.
+#[rocket::async_test]
+async fn stream_download_failure_answers_json_without_pdf_headers() {
+    let base_url = fake_api_with_failing_storage("403 Forbidden");
+    let c = client(&base_url).await;
+
+    let r = c.get("/render/stream").dispatch().await;
+    assert_eq!(r.status(), Status::Forbidden);
+    assert_eq!(
+        r.headers().get_one("content-type"),
+        Some("application/json; charset=utf-8")
+    );
+    assert_eq!(r.headers().get_one("content-disposition"), None);
+    let body: Value = serde_json::from_str(&r.into_string().await.unwrap()).unwrap();
+    assert_eq!(
+        body,
+        json!({
+            "code": "DOWNLOAD_FAILED",
+            "message": "Failed to download PDF: HTTP 403",
+            "status": 403,
+            "requestId": null,
+        })
+    );
 }

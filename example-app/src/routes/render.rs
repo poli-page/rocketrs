@@ -9,7 +9,7 @@ fn input() -> RenderInput {
     RenderInput {
         project: "getting-started".into(),
         template: "welcome".into(),
-        data: json!({ "name": "World" }),
+        data: json!({ "name": "SDK Demo" }),
         ..Default::default()
     }
 }
@@ -44,7 +44,7 @@ pub async fn file(client: &State<PoliPageClient>) -> Result<Json<RenderFileResul
         RenderInput {
             project: "getting-started".into(),
             template: "welcome".into(),
-            data: json!({ "name": "render_to_file demo" }),
+            data: json!({ "name": "SDK Demo" }),
             ..Default::default()
         },
         &path,

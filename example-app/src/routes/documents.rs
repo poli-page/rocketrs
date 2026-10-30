@@ -12,7 +12,7 @@ pub async fn create(client: &State<PoliPageClient>) -> Result<Json<Value>, PoliP
         .document(RenderInput {
             project: "getting-started".into(),
             template: "welcome".into(),
-            data: json!({ "name": "Stored doc" }),
+            data: json!({ "name": "SDK Demo" }),
             ..Default::default()
         })
         .await?;
