@@ -17,7 +17,6 @@ exclude       = [
     "/example-app",
     "/tests",
     "/docs",
-    "/CLAUDE.md",
     "/rust-toolchain.toml",
 ]
 
