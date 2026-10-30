@@ -34,7 +34,7 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: API contract
         id: contract
-        uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0
+        uses: poli-page/api-contract@d27bb4241a49bcef8d8901745f9f6bab30f43b8b # v1.4.0
       - name: Test
         env:
           POLI_CONTRACT: ${{ steps.contract.outputs.path }}
