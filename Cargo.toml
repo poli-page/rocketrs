@@ -1,6 +1,6 @@
 [package]
 name          = "poli-page-rocket"
-version       = "0.1.0"
+version       = "0.11.0"
 edition       = "2021"
 rust-version  = "1.93"
 authors       = ["Poli Page"]
@@ -12,12 +12,14 @@ readme        = "README.md"
 license       = "MIT OR Apache-2.0"
 keywords      = ["rocket", "pdf", "html", "template", "poli-page"]
 categories    = ["api-bindings", "web-programming"]
-exclude       = [
-    "/.github",
-    "/example-app",
-    "/tests",
-    "/docs",
-    "/rust-toolchain.toml",
+# Allowlist: the published crate is the library and its docs only, never the
+# example app, the tests or local tooling (CI, lint and formatter config).
+include       = [
+    "/src/**/*.rs",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
 ]
 
 [lib]

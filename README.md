@@ -113,7 +113,7 @@ rocket::build().attach(PoliPageFairing::new(builder))
 | `DocumentRedirect` | `Responder` that issues a 302 (or 308 via `.permanent()`) to a presigned URL. |
 | `PoliPageError` | Newtype around `poli_page::Error`; its `Responder` impl is the error handler. |
 
-Full reference: [docs/api.md](docs/api.md) (forthcoming).
+Full reference: [docs.rs/poli-page-rocket](https://docs.rs/poli-page-rocket).
 
 ## Error handler
 
@@ -166,7 +166,7 @@ POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 
 - [Streaming](docs/streaming.md) — forward `PdfResponse::stream` from `client.render().pdf_stream(...)` with `Transfer-Encoding: chunked` (forthcoming).
 - [Observability](docs/observability.md) — bridge SDK `on_retry` and `on_error` events to `tracing` under the `poli_page_rocket` target (forthcoming).
-- [API reference](docs/api.md) — every public symbol with full type signatures and header guarantees (forthcoming).
+- [API reference](https://docs.rs/poli-page-rocket) — every public symbol with its type signature and documentation.
 
 ## Compatibility
 
