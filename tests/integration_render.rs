@@ -1,4 +1,5 @@
-//! Integration test against the live API (the SDK default base URL).
+//! Integration test against the live API: the SDK default base URL, or
+//! `POLI_PAGE_BASE_URL` when it is set (`PoliPageFairing::from_env` reads it).
 //!
 //! Marked `#[ignore]` so the default `cargo test` skips it. Run with:
 //!     cargo test -- --ignored
