@@ -10,44 +10,14 @@
 //! POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 //! ```
 //!
-//! Or set the env vars in `/Users/mickael/Projects/.env` (workspace root)
-//! and `cargo run --bin example-app` — `dotenvy::from_path` is called
-//! before `rocket::build()` so the file populates `std::env` for any
-//! var the shell hasn't already exported (12-factor: shell wins).
-
-use poli_page_rocket::PoliPageFairing;
-use rocket::fs::{relative, FileServer};
-use rocket::{Build, Rocket};
-
-mod routes;
-
-/// The demo app: every route, mounted on a Rocket that `fairing` gives its
-/// SDK client.
-fn app(fairing: PoliPageFairing) -> Rocket<Build> {
-    rocket::build()
-        .attach(fairing)
-        .mount(
-            "/",
-            rocket::routes![
-                routes::demo::index,
-                routes::render::pdf,
-                routes::render::stream,
-                routes::render::file,
-                routes::documents::create,
-                routes::documents::get,
-                routes::documents::delete,
-                routes::documents::thumbnails,
-                routes::documents::preview,
-                routes::errors::not_found,
-            ],
-        )
-        .mount("/static", FileServer::from(relative!("static")))
-}
+//! Or put the variables in a `.env` file, next to the binary or two
+//! directories up (the directory that holds the repository checkout), and
+//! `cargo run --bin example-app`: `dotenvy::from_path` is called before
+//! `rocket::build()`, so the file fills in any variable the shell has not
+//! already exported (the shell wins).
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
-    // Workspace-root .env (one above the crate root) is the source of truth
-    // per CLAUDE.md §10.4. `.env` next to the binary is also accepted.
     let _ = dotenvy::from_path("../../.env");
     let _ = dotenvy::from_path(".env");
 
@@ -58,8 +28,8 @@ async fn main() -> Result<(), rocket::Error> {
         )
         .init();
 
-    app(PoliPageFairing::from_env()).launch().await.map(|_| ())
+    poli_page_rocket_example_app::rocket()
+        .launch()
+        .await
+        .map(|_| ())
 }
-
-#[cfg(test)]
-mod tests;
