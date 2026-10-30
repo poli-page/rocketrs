@@ -26,7 +26,7 @@ name = "poli_page_rocket"
 path = "src/lib.rs"
 
 [dependencies]
-poli-page    = "0.9.0"
+poli-page    = "0.11.0"
 rocket       = { version = "0.5", default-features = false }
 tracing      = "0.1"
 bytes        = "1.7"
@@ -38,12 +38,6 @@ serde_json   = "1.0"
 tokio              = { version = "1.40", features = ["macros", "rt-multi-thread", "time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serial_test        = "3.1"
-
-# Pins the unreleased poli-page SDK (poli-page/sdk-rust#36: environment keys,
-# no template versions, no render preview). Remove once the poli-page release
-# that carries it is on crates.io, and bump the requirement above to it.
-[patch.crates-io]
-poli-page = { git = "https://github.com/poli-page/sdk-rust", rev = "001eaac0507675826fb600232a0ff48c82d91c65" }
 
 [lints.clippy]
 pedantic = { level = "warn", priority = -1 }

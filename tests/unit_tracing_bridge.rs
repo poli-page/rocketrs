@@ -20,6 +20,7 @@ fn on_retry_emits_event_with_attempt_and_delay() {
                 code: "INTERNAL_ERROR".into(),
                 message: "boom".into(),
                 request_id: Some("req_99".into()),
+                source: None,
             },
         };
         poli_page_rocket::__internal_tracing_bridge::on_retry(&event);
