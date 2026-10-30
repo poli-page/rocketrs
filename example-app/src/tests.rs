@@ -266,3 +266,22 @@ async fn stream_download_failure_answers_json_without_pdf_headers() {
         })
     );
 }
+
+/// The stream route makes the SDK call before it builds the PDF responder,
+/// so a render error is answered as JSON, not after a committed 200 PDF.
+#[rocket::async_test]
+async fn stream_render_error_answers_json_before_any_pdf_header() {
+    let (base_url, _seen) = fake_api();
+    let c = client(&base_url).await;
+
+    let r = c.get("/render/stream").dispatch().await;
+    assert_eq!(r.status(), Status::NotFound);
+    assert_eq!(
+        r.headers().get_one("content-type"),
+        Some("application/json; charset=utf-8")
+    );
+    assert_eq!(r.headers().get_one("content-disposition"), None);
+    let body: Value = serde_json::from_str(&r.into_string().await.unwrap()).unwrap();
+    assert_eq!(body["code"], "TEMPLATE_NOT_FOUND");
+    assert_eq!(body["status"], 404);
+}
