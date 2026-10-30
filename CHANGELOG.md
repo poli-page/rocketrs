@@ -7,6 +7,7 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 Breaking: adopts the environments contract of the `poli-page` SDK (environment keys, no template versions, no render preview).
 
 ### Changed
+- MSRV raised from 1.75 to 1.93, the `rust-version` of the `poli-page` SDK this crate depends on; 1.75 could never build it. CI's MSRV job now really builds with 1.93 instead of the `rust-toolchain.toml` stable.
 - `PoliPageFairing::from_env()` accepts any non-empty `POLI_PAGE_API_KEY` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`, …) instead of failing ignition unless the key starts with `pp_test_` or `pp_live_`. A missing or empty key still fails ignition. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one `tracing` warning under the `poli_page_rocket` target, naming the expected format and showing no part of the key (not even its `pp_{environment}_` part), and ignites anyway: the API decides whether the key is valid.
 - Builds against the `poli-page` SDK whose render input is `RenderInput` with no `version`; the crate root re-exports `RenderInput`.
 - Example app: renders send no `version`, and `GET /errors/not-found` (template `does-not-exist`, answering `404` `TEMPLATE_NOT_FOUND` through the `PoliPageError` responder) replaces `GET /errors/bad-version`.

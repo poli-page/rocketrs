@@ -2,7 +2,7 @@
 name          = "poli-page-rocket"
 version       = "0.1.0"
 edition       = "2021"
-rust-version  = "1.75"
+rust-version  = "1.93"
 authors       = ["Poli Page"]
 description   = "Rocket.rs fairing and responders for the Poli Page PDF rendering API"
 homepage      = "https://poli.page"

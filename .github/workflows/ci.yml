@@ -10,7 +10,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: ['stable', 'beta', '1.75']
+        rust: ['stable', 'beta', '1.93']
+    env:
+      # rust-toolchain.toml pins stable; without this every leg builds with stable.
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,6 +30,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rocketrs
+      - name: Toolchain
+        working-directory: rocketrs
+        run: rustc -V && cargo -V
       - name: Format
         working-directory: rocketrs
         run: cargo fmt --check
