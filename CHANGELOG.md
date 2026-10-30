@@ -4,13 +4,20 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
-Breaking: adopts the environments contract of the `poli-page` SDK (environment keys, no template versions, no render preview).
+Breaking: requires the `poli-page` SDK 0.11.0, the first release with the environments contract (environment keys `pp_{environment}_{32 hex}`, no template versions, no render preview).
+
+### Added
+- Error handler, on by default: the `PoliPageError` responder answers the SDK error's `to_payload()` as JSON, `{ code, message, status, requestId }` (`status` and `requestId` are `null` when unknown), with that status: the API status, `503` for `network_error`, `504` for `timeout`, or `500` when the payload has none. `PoliPageFairing::error_handler(false)` turns it off: the responder then writes no body and hands the status to Rocket's catchers.
+- Contract tests: `example-app/tests/contract.rs` runs the `impl` cases of the Poli Page API contract against the example app with the SDK pointed at a local mock server. CI runs them on every toolchain leg against the pinned contract (v1.3.0), and also checks, builds and tests `example-app/`. Dependabot proposes each new contract version the next day.
+- The example app is also a library target (`app(fairing)`, `rocket()`), so tests mount the same routes.
 
 ### Changed
+- Depends on `poli-page` `0.11.0` from crates.io (was `0.9.0`).
 - MSRV raised from 1.75 to 1.93, the `rust-version` of the `poli-page` SDK this crate depends on; 1.75 could never build it. CI's MSRV job now really builds with 1.93 instead of the `rust-toolchain.toml` stable.
+- Error answers: the body is the SDK's `to_payload()`, which adds `status` and carries the bare message (no `Display` prefix). `Error::Connection` answers `503` (was `502`), `Error::Aborted` `500` (was `503`), and `Error::Download` the storage status, or `500` without one (was `502`).
 - `PoliPageFairing::from_env()` accepts any non-empty `POLI_PAGE_API_KEY` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`, …) instead of failing ignition unless the key starts with `pp_test_` or `pp_live_`. A missing or empty key still fails ignition. A key that does not match `pp_{environment}_{32 lowercase hex}` logs one `tracing` warning under the `poli_page_rocket` target, naming the expected format and showing no part of the key (not even its `pp_{environment}_` part), and ignites anyway: the API decides whether the key is valid.
 - Builds against the `poli-page` SDK whose render input is `RenderInput` with no `version`; the crate root re-exports `RenderInput`.
-- Example app: renders send no `version`, and `GET /errors/not-found` (template `does-not-exist`, answering `404` `TEMPLATE_NOT_FOUND` through the `PoliPageError` responder) replaces `GET /errors/bad-version`.
+- Example app: renders send no `version`, and `GET /errors/not-found` (template `does-not-exist`, answering `404` `TEMPLATE_NOT_FOUND` through the error handler) replaces `GET /errors/bad-version`.
 
 ### Removed
 - `impl From<poli_page::PreviewResult> for PreviewResponse` and the `InlineModeInput`, `PreviewResult` and `ProjectModeInput` re-exports: the SDK no longer has render preview or inline templates. `PreviewResponse` still builds from `DocumentPreviewResult` and from a `String`.
