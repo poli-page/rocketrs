@@ -43,7 +43,8 @@ enum Source {
 }
 
 impl PoliPageFairing {
-    /// Read all options from environment variables (see spec §6.3).
+    /// Read all options from the `POLI_PAGE_*` environment variables (see the
+    /// README's Configuration table).
     /// Ignite fails if `POLI_PAGE_API_KEY` is missing or empty. Any other
     /// value ignites: the Poli Page API is the only authority on keys, so a
     /// key that does not look like `pp_{environment}_{32 lowercase hex}` only

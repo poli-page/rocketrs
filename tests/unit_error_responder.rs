@@ -79,6 +79,15 @@ fn make_error(variant: &str) -> Error {
             message: "x".into(),
             status: None,
         },
+        "invalid-response" => Error::InvalidResponse {
+            status: 200,
+            request_id: None,
+            source: None,
+        },
+        "io" => Error::Io {
+            path: "out.pdf".into(),
+            source: std::io::Error::other("disk full"),
+        },
         other => panic!("unknown variant: {other}"),
     }
 }
@@ -222,6 +231,26 @@ async fn internal_maps_to_500() {
     let c = client().await;
     assert_eq!(
         c.get("/internal").dispatch().await.status(),
+        Status::InternalServerError
+    );
+}
+
+#[rocket::async_test]
+async fn invalid_response_maps_to_502() {
+    // The SDK keeps the real 2xx in `status()`; the payload, and so the
+    // answer, carries 502.
+    let c = client().await;
+    assert_eq!(
+        c.get("/invalid-response").dispatch().await.status(),
+        Status::BadGateway
+    );
+}
+
+#[rocket::async_test]
+async fn io_maps_to_500() {
+    let c = client().await;
+    assert_eq!(
+        c.get("/io").dispatch().await.status(),
         Status::InternalServerError
     );
 }

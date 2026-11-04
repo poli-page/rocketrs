@@ -29,11 +29,12 @@ pub(crate) struct ErrorHandlerSetting {
 /// the crate's error handler.
 ///
 /// The answer has the status of the SDK's canonical payload,
-/// [`poli_page::Error::to_payload`] (the API status, `503` for
-/// `network_error`, `504` for `timeout`), or `500` when that status is
-/// `null`. Its body is that payload as JSON, `{ code, message, status,
-/// requestId }` (`status` and `requestId` are `null` when unknown), with
-/// `Content-Type: application/json; charset=utf-8` and `Cache-Control:
+/// [`poli_page::Error::to_payload`] (the API status, `502` for
+/// `invalid_response`, `503` for `network_error`, `504` for `timeout`), or
+/// `500` when that status is `null` (for example `io_error` or
+/// `invalid_options`). Its body is that payload as JSON, `{ code, message,
+/// status, requestId }` (`status` and `requestId` are `null` when unknown),
+/// with `Content-Type: application/json; charset=utf-8` and `Cache-Control:
 /// private, no-store`.
 ///
 /// When the fairing was built with

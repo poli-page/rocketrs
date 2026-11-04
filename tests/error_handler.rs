@@ -32,6 +32,16 @@ fn error(variant: &str) -> Error {
             message: "unexpected answer".into(),
             status: None,
         },
+        // A proxy answered the render with a 200 HTML page.
+        "invalid-response" => Error::InvalidResponse {
+            status: 200,
+            request_id: Some("req_200".into()),
+            source: None,
+        },
+        "io" => Error::Io {
+            path: "/srv/pdf/invoice.pdf".into(),
+            source: std::io::Error::new(std::io::ErrorKind::PermissionDenied, "permission denied"),
+        },
         other => panic!("unknown variant {other}"),
     }
 }
@@ -167,9 +177,48 @@ async fn sdk_error_without_status_answers_500_with_null_status() {
 }
 
 #[rocket::async_test]
+async fn invalid_response_answers_502_not_the_2xx() {
+    let c = client(PoliPageFairing::with_client(sdk())).await;
+    let (status, body) = json_answer(c.get("/fail/invalid-response").dispatch().await).await;
+    assert_eq!(status, Status::BadGateway);
+    assert_eq!(
+        body,
+        json!({
+            "code": "invalid_response",
+            "message": "Invalid response: HTTP 200 body is not JSON",
+            "status": 502,
+            "requestId": "req_200",
+        })
+    );
+}
+
+#[rocket::async_test]
+async fn io_error_answers_500_with_null_status() {
+    let c = client(PoliPageFairing::with_client(sdk())).await;
+    let (status, body) = json_answer(c.get("/fail/io").dispatch().await).await;
+    assert_eq!(status, Status::InternalServerError);
+    assert_eq!(
+        body,
+        json!({
+            "code": "io_error",
+            "message": "Failed to write PDF: /srv/pdf/invoice.pdf: permission denied",
+            "status": null,
+            "requestId": null,
+        })
+    );
+}
+
+#[rocket::async_test]
 async fn body_is_exactly_to_payload() {
     let c = client(PoliPageFairing::with_client(sdk())).await;
-    for variant in ["template-not-found", "network", "timeout", "internal"] {
+    for variant in [
+        "template-not-found",
+        "network",
+        "timeout",
+        "internal",
+        "invalid-response",
+        "io",
+    ] {
         let (_, body) = json_answer(c.get(format!("/fail/{variant}")).dispatch().await).await;
         let expected = serde_json::to_value(error(variant).to_payload()).unwrap();
         assert_eq!(body, expected, "{variant}");

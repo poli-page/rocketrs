@@ -26,12 +26,12 @@ You attach a fairing, the SDK client lands in Rocket's managed state, and your r
 
 - Rust `1.93` or newer (MSRV)
 - Rocket `0.5`
-- [`poli-page`] `0.11.0` or newer within `0.11` (environment keys, no template versions)
+- [`poli-page`] `0.13`: `0.13.0` or newer within `0.13` (`poli-page = "0.13"`)
 
 ## Install
 
 ```bash
-cargo add poli-page-rocket poli-page@0.11.0 rocket
+cargo add poli-page-rocket poli-page@0.13 rocket
 ```
 
 Set the API key before booting Rocket. Grab one from the [Poli Page dashboard](https://app.poli.page/settings/api-keys). A key is `pp_{environment}_{32 lowercase hex}` and belongs to one environment of your organization, which decides how its renders are treated ("Counted" means the render counts toward the organization's monthly PDF quota):
@@ -88,7 +88,7 @@ Every constructor also turns on the [error handler](#error-handler); chain `.err
 |---|---|---|
 | `POLI_PAGE_API_KEY` | API key, `pp_{environment}_{32 lowercase hex}` (required and non-empty; e.g. `pp_sandbox_…`) | — |
 | `POLI_PAGE_BASE_URL` | Override the API base URL | `https://api.poli.page` |
-| `POLI_PAGE_TIMEOUT_SECS` | Per-attempt timeout, in seconds | `60` |
+| `POLI_PAGE_TIMEOUT_SECS` | Per-attempt timeout, in seconds. It also bounds the PDF download from storage (`render().pdf`: the whole download; `render().pdf_stream`: each wait for data). A download that outlasts it fails with `DOWNLOAD_FAILED` and no status, which the error handler answers with `500`, not `504`. | `60` |
 | `POLI_PAGE_MAX_RETRIES` | Retry budget for `5xx` and `429` (never `4xx`) | `2` |
 | `POLI_PAGE_RETRY_DELAY_MS` | Initial retry delay, in milliseconds (exponential backoff) | `500` |
 
@@ -119,7 +119,7 @@ Full reference: [docs.rs/poli-page-rocket](https://docs.rs/poli-page-rocket).
 
 Routes return `Result<T, PoliPageError>`, and `?` converts the SDK's `poli_page::Error`. The `PoliPageError` responder is the crate's error handler, and it is **on by default** as soon as the fairing is attached. It answers:
 
-- **Status:** the `status` of the SDK's `Error::to_payload()`: the API's status for an API error, `503` for `network_error`, `504` for `timeout`, or `500` when the payload has no status (for example `invalid_options` or `INTERNAL_ERROR` with no response).
+- **Status:** the `status` of the SDK's `Error::to_payload()`: the API's status for an API error, `502` for `invalid_response` (a 2xx answer whose body is not JSON, such as a proxy's HTML page), `503` for `network_error`, `504` for `timeout`, or `500` when the payload has no status (for example `invalid_options`, `io_error` from `render_to_file`, `DOWNLOAD_FAILED` without a storage status, or `INTERNAL_ERROR` with no response).
 - **Body:** exactly `to_payload()` as JSON, `{ "code", "message", "status", "requestId" }`. `status` and `requestId` are `null` when unknown.
 - **Headers:** `Content-Type: application/json; charset=utf-8` and `Cache-Control: private, no-store`.
 
@@ -172,7 +172,7 @@ POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 
 | `poli-page-rocket` | Rocket | Rust (MSRV) | `poli-page` SDK |
 |---|---|---|---|
-| `0.11.x` | `0.5` | `1.93` | `0.11` |
+| `0.13.x` | `0.5` | `1.93` | `0.13` |
 
 Rocket `0.5` is the only stable line at the time of writing. MSRV is bumped at most once per minor release.
 
