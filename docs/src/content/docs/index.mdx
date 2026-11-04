@@ -1,0 +1,18 @@
+---
+title: Poli Page Rocket integration
+description: Render Poli Page documents from Rocket routes with the poli-page-rocket crate.
+template: splash
+hero:
+  tagline: Render Poli Page documents as Rocket responders.
+  actions:
+    - { text: Quick start, link: /rocketrs/getting-started/quick-start/, icon: rocket }
+    - { text: API reference, link: /rocketrs/reference/api/, icon: open-book }
+---
+
+import { CardGrid, Card } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Quick start" icon="rocket">Attach the fairing and return a PDF from a route.</Card>
+  <Card title="Concepts" icon="puzzle">Configuration, client access through managed state, PDF and preview responders.</Card>
+  <Card title="API reference" icon="open-book">Every public item of `poli-page-rocket`, on one page.</Card>
+</CardGrid>

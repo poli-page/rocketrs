@@ -1,0 +1,51 @@
+---
+title: Quick start
+description: Attach PoliPageFairing, take the client from managed state and return a PDF from a Rocket route.
+---
+
+This page takes you from an attached fairing to a route that renders a Poli Page template and answers with the PDF.
+
+## Attach the fairing
+
+Follow [Install](../install/) first: the crates are added, `POLI_PAGE_API_KEY` is set, and `PoliPageFairing::from_env()` is attached to `rocket::build()`.
+
+## Render from a route
+
+A route takes `&State<PoliPageClient>`, calls the SDK through `client.render()`, and returns a `PdfResponse`. Declare the return type as `Result<PdfResponse, PoliPageError>` so the `?` operator turns an SDK error into the crate's JSON error answer (see [Errors](../../production/errors/)).
+
+The `getting-started` project and its `welcome` template exist in every organization's sandbox, so the example below works with a `pp_sandbox_…` key and no setup. Replace them with your own project and template when you have them.
+
+## Example
+
+```rust
+use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError, PoliPageFairing};
+use rocket::{get, routes, State};
+use serde_json::json;
+
+#[get("/invoice.pdf")]
+async fn invoice(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
+    let bytes = client
+        .render()
+        .pdf(poli_page::RenderInput {
+            project: "billing".into(),
+            template: "invoice".into(),
+            data: json!({ "invoiceNumber": "INV-001" }),
+            ..Default::default()
+        })
+        .await?;
+    Ok(PdfResponse::bytes(bytes).filename("INV-001.pdf").inline())
+}
+
+#[rocket::launch]
+fn rocket() -> _ {
+    rocket::build()
+        .attach(PoliPageFairing::from_env())
+        .mount("/", routes![invoice])
+}
+```
+
+## See also
+
+- [Client access](../../concepts/client-access/)
+- [Responses](../../concepts/responses/)
+- [Errors](../../production/errors/)

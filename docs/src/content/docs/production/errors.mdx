@@ -1,0 +1,73 @@
+---
+title: Errors
+description: How SDK errors reach your Rocket routes, the JSON answer PoliPageError gives by default and how to turn it off.
+---
+
+Routes return `Result<T, PoliPageError>`. `PoliPageError` is a newtype around the SDK's `poli_page::Error`, and its `Responder` impl is the crate's error handler. It is on by default as soon as the fairing is attached.
+
+## The error
+
+`poli_page::Error` is the SDK's error type. `PoliPageError(pub Error)` exists because the orphan rule forbids implementing `Responder` for the SDK type directly. The `?` operator converts through `From<poli_page::Error>`, so a route needs no `map_err`.
+
+The SDK's `Error` has `code()`, `status()`, `request_id()`, `to_payload()` and predicates such as `is_retryable()`. The SDK's [Errors](https://poli-page.github.io/sdk-rust/production/errors/) page lists every code.
+
+## What the handler answers
+
+- **Status:** the `status` of `Error::to_payload()`. That is the API's status for an API error, `502` for `invalid_response` (a 2xx answer whose body is not JSON, such as a proxy's HTML page), `503` for `network_error` and `504` for `timeout`. When the payload has no status, the answer is `500`. Examples are `invalid_options`, `io_error` from `render_to_file`, `DOWNLOAD_FAILED` without a storage status, and `INTERNAL_ERROR` with no response.
+- **Body:** exactly `to_payload()` as JSON, `{ "code", "message", "status", "requestId" }`. `status` and `requestId` are `null` when unknown.
+- **Headers:** `Content-Type: application/json; charset=utf-8` and `Cache-Control: private, no-store`.
+
+```json
+{
+  "code": "TEMPLATE_NOT_FOUND",
+  "message": "Template 'does-not-exist' not found in project 'getting-started'.",
+  "status": 404,
+  "requestId": "req_123"
+}
+```
+
+## Handle errors yourself
+
+Chain `.error_handler(false)` on the fairing to turn the handler off. The responder then writes no body and hands the same status to Rocket's catchers, so your own `#[catch(...)]` handlers, or Rocket's default HTML pages, answer. To build a body of your own, match on the `poli_page::Error` inside the route instead of using `?`.
+
+## Example
+
+```rust
+use poli_page_rocket::{PdfResponse, PoliPageClient, PoliPageError, PoliPageFairing};
+use rocket::response::content::RawJson;
+use rocket::{catch, catchers, get, routes, Request, State};
+use serde_json::json;
+
+#[get("/invoice.pdf")]
+async fn invoice(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
+    let bytes = client
+        .render()
+        .pdf(poli_page::RenderInput {
+            project: "billing".into(),
+            template: "invoice".into(),
+            data: json!({ "invoiceNumber": "INV-001" }),
+            ..Default::default()
+        })
+        .await?;
+    Ok(PdfResponse::bytes(bytes))
+}
+
+#[catch(404)]
+fn not_found(_req: &Request<'_>) -> RawJson<&'static str> {
+    RawJson(r#"{ "error": "not found" }"#)
+}
+
+#[rocket::launch]
+fn rocket() -> _ {
+    rocket::build()
+        .attach(PoliPageFairing::from_env().error_handler(false))
+        .mount("/", routes![invoice])
+        .register("/", catchers![not_found])
+}
+```
+
+## See also
+
+- [Configuration](../../concepts/configuration/)
+- [Responses](../../concepts/responses/)
+- [Testing](../testing/)

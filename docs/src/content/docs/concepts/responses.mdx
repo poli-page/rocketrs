@@ -1,0 +1,71 @@
+---
+title: Responses
+description: Return PDFs, HTML previews and redirects from Rocket routes with PdfResponse, PreviewResponse and DocumentRedirect.
+---
+
+Three `Responder` types carry the conventional headers for a Poli Page document. They are all `#[must_use]`, and each default header can be overridden where noted.
+
+## PDF
+
+`PdfResponse` answers `application/pdf`. Build it from buffered bytes with `PdfResponse::bytes(bytes)` or from the SDK's stream with `PdfResponse::stream(stream)`, then chain the options:
+
+| Method | Effect | Default |
+| --- | --- | --- |
+| `.filename(name)` | The name for the browser's Save dialog. | none |
+| `.inline()` | `inline` disposition, so the browser previews the PDF. | `attachment` |
+| `.cache_control(value)` | Replaces the `Cache-Control` value. | `private, no-store` |
+
+The response always carries `X-Content-Type-Options: nosniff`. Buffered bytes set `Content-Length`.
+
+`Content-Disposition` is `attachment; filename="<name>"` (or `inline; ...`). Control characters are stripped from the name, and `\` and `"` are escaped. A name that is not printable ASCII gets an escaped ASCII fallback in `filename` plus an RFC 5987 `filename*=UTF-8''<percent-encoded>`. Without a filename the header is just `attachment` or `inline`.
+
+## Streamed PDF
+
+`client.render().pdf_stream(input)` returns a chunked stream. Pass it to `PdfResponse::stream` and Rocket forwards the chunks without buffering the document. An error in the stream ends the body early, so there is no JSON error answer once the headers are sent.
+
+## HTML preview
+
+`PreviewResponse` answers `text/html; charset=utf-8`. `PreviewResponse::new(html)` takes any `String`, and `PreviewResponse::from(result)` takes the `DocumentPreviewResult` that `documents().preview(id)` returns. It has `.cache_control(value)` and the same defaults as `PdfResponse`: `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+
+## Redirect to a stored document
+
+`DocumentRedirect` answers `302` with a `Location` header and `Cache-Control: private, no-store`. `DocumentRedirect::to(url)` takes any URL, and `.permanent()` switches to `308`. `DocumentRedirect::from(&descriptor)` takes the `presigned_pdf_url` of a `DocumentDescriptor` from `documents().get(id)`. That URL lasts about 15 minutes, so fetch the descriptor on each request instead of storing the redirect.
+
+## Example
+
+```rust
+use poli_page_rocket::{DocumentRedirect, PdfResponse, PoliPageClient, PoliPageError, PreviewResponse};
+use rocket::{get, State};
+use serde_json::json;
+
+#[get("/invoice/stream.pdf")]
+async fn stream(client: &State<PoliPageClient>) -> Result<PdfResponse, PoliPageError> {
+    let pdf = client
+        .render()
+        .pdf_stream(poli_page::RenderInput {
+            project: "billing".into(),
+            template: "invoice".into(),
+            data: json!({ "invoiceNumber": "INV-001" }),
+            ..Default::default()
+        })
+        .await?;
+    Ok(PdfResponse::stream(pdf).filename("INV-001.pdf"))
+}
+
+#[get("/documents/<id>/preview")]
+async fn preview(client: &State<PoliPageClient>, id: &str) -> Result<PreviewResponse, PoliPageError> {
+    Ok(client.documents().preview(id).await?.into())
+}
+
+#[get("/documents/<id>/pdf")]
+async fn pdf(client: &State<PoliPageClient>, id: &str) -> Result<DocumentRedirect, PoliPageError> {
+    let descriptor = client.documents().get(id).await?;
+    Ok(DocumentRedirect::from(&descriptor))
+}
+```
+
+## See also
+
+- [Quick start](../../getting-started/quick-start/)
+- [Errors](../../production/errors/)
+- [API reference](../../reference/api/)

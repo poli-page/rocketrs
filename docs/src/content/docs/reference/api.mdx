@@ -1,0 +1,112 @@
+---
+title: API
+description: Every public item of the poli-page-rocket crate, with signatures and exact behavior.
+---
+
+This page lists what `poli-page-rocket` exports from its crate root. The source is [`src/lib.rs`](https://github.com/poli-page/rocketrs/blob/main/src/lib.rs). The SDK objects behind the client are described in [SDK](../sdk/).
+
+## PoliPageFairing
+
+```rust
+pub struct PoliPageFairing { /* private */ }
+
+impl PoliPageFairing {
+    pub fn from_env() -> Self;
+    pub fn new(builder: poli_page::PoliPageBuilder) -> Self;
+    pub fn with_client(client: poli_page::PoliPage) -> Self;
+    pub fn error_handler(self, enabled: bool) -> Self;
+}
+```
+
+A Rocket `Fairing` of kind `Ignite`, named `poli-page-rocket`. At ignite it builds the SDK client and inserts it into managed state as `PoliPageClient`. Ignite fails, and Rocket does not launch, when the key is missing or empty, a numeric variable does not parse, the builder rejects the options, or the fairing is attached twice. The reason is logged under the `poli_page_rocket` target.
+
+`from_env` reads `POLI_PAGE_API_KEY`, `POLI_PAGE_BASE_URL`, `POLI_PAGE_TIMEOUT_SECS`, `POLI_PAGE_MAX_RETRIES` and `POLI_PAGE_RETRY_DELAY_MS`, see [Configuration](../../concepts/configuration/). `from_env` and `new` install the crate's `tracing` hooks, `with_client` does not. `error_handler(false)` turns the error handler off, the default is on.
+
+## PoliPageClient
+
+```rust
+#[derive(Clone)]
+pub struct PoliPageClient(pub poli_page::PoliPage);
+
+impl PoliPageClient {
+    pub fn client(&self) -> &poli_page::PoliPage;
+    pub fn render(&self) -> &poli_page::Render;
+    pub fn documents(&self) -> &poli_page::Documents;
+}
+```
+
+The newtype held in managed state. Take it with `&State<PoliPageClient>`.
+
+## PoliPage
+
+```rust
+pub struct PoliPage<'r>(pub &'r poli_page::PoliPage);
+```
+
+A request guard that yields the SDK client. Without the fairing it logs an error and forwards the request with `500`.
+
+## PdfResponse
+
+```rust
+pub struct PdfResponse { /* private */ }
+
+impl PdfResponse {
+    pub fn bytes(body: bytes::Bytes) -> Self;
+    pub fn stream(stream: poli_page::client::PdfByteStream) -> Self;
+    pub fn filename(self, name: impl Into<String>) -> Self;
+    pub fn inline(self) -> Self;
+    pub fn cache_control(self, value: impl Into<String>) -> Self;
+}
+```
+
+A `Responder` for `application/pdf`. Defaults: `attachment` disposition, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`. See [Responses](../../concepts/responses/).
+
+## PreviewResponse
+
+```rust
+pub struct PreviewResponse { /* private */ }
+
+impl PreviewResponse {
+    pub fn new(html: impl Into<String>) -> Self;
+    pub fn cache_control(self, value: impl Into<String>) -> Self;
+}
+
+impl From<poli_page::DocumentPreviewResult> for PreviewResponse { /* … */ }
+```
+
+A `Responder` for `text/html; charset=utf-8`, with the same `Cache-Control` and `X-Content-Type-Options` defaults as `PdfResponse`.
+
+## DocumentRedirect
+
+```rust
+pub struct DocumentRedirect { /* private */ }
+
+impl DocumentRedirect {
+    pub fn to(url: impl Into<String>) -> Self;
+    pub fn permanent(self) -> Self;
+}
+
+impl From<&poli_page::DocumentDescriptor> for DocumentRedirect { /* … */ }
+```
+
+A `Responder` that answers `302`, or `308` after `permanent()`, with `Location` and `Cache-Control: private, no-store`. The `From` impl redirects to `presigned_pdf_url`.
+
+## PoliPageError
+
+```rust
+pub struct PoliPageError(pub poli_page::Error);
+
+impl From<poli_page::Error> for PoliPageError { /* … */ }
+```
+
+The crate's error handler, see [Errors](../../production/errors/).
+
+## Modules
+
+- `headers` has `content_disposition(filename, inline)`, `rfc5987_encode(s)` and `is_ascii_safe(s)`, the helpers behind `PdfResponse`'s `Content-Disposition`.
+- `responses` holds the three responders. Its `pdf` module has `PdfBody`, the enum of `PdfResponse`'s two bodies (`Bytes` and `Stream`).
+- `errors`, `fairing` and `state` hold the types above.
+
+## SDK re-exports
+
+The crate root re-exports `DocumentDescriptor`, `DocumentPreviewResult`, `Error`, `RenderInput`, `RetryEvent`, `ThumbnailFormat` and `ThumbnailOptions` from `poli-page`, and `PoliPage` as `SdkPoliPage`. They are the SDK's own types, not copies. Note that the crate's `PoliPage<'r>` request guard is a different type from the SDK's `PoliPage`.

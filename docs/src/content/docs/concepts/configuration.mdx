@@ -1,0 +1,56 @@
+---
+title: Configuration
+description: The POLI_PAGE_* environment variables, and the three PoliPageFairing constructors for configuring the client in code.
+---
+
+You configure the client either from environment variables, with `PoliPageFairing::from_env()`, or in code, with a builder or a ready client. Every constructor also turns on the [error handler](../../production/errors/).
+
+## Environment variables
+
+`PoliPageFairing::from_env()` reads these variables when Rocket ignites:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `POLI_PAGE_API_KEY` | API key, `pp_{environment}_{32 lowercase hex}`. Required and non-empty. | none |
+| `POLI_PAGE_BASE_URL` | Override the API base URL. | `https://api.poli.page` |
+| `POLI_PAGE_TIMEOUT_SECS` | Per-attempt timeout, in seconds. | `60` |
+| `POLI_PAGE_MAX_RETRIES` | Retry budget for `5xx` and `429` (never `4xx`). | `2` |
+| `POLI_PAGE_RETRY_DELAY_MS` | Initial retry delay, in milliseconds (exponential backoff). | `500` |
+
+The timeout also bounds the PDF download from storage: for `render().pdf` the whole download, for `render().pdf_stream` each wait for data. A download that outlasts it fails with `DOWNLOAD_FAILED` and no status, which the error handler answers with `500`, not `504`.
+
+A timeout, retry count or delay that is not a number makes ignite fail, and the error names the variable. A value the SDK builder rejects fails ignite too. In both cases Rocket logs the reason under the `poli_page_rocket` target.
+
+## Constructors
+
+| Constructor | Use it when |
+| --- | --- |
+| `PoliPageFairing::from_env()` | All options come from the environment. |
+| `PoliPageFairing::new(builder)` | You build a `poli_page::PoliPageBuilder` yourself. |
+| `PoliPageFairing::with_client(client)` | You already have a `poli_page::PoliPage`, for example one shared with non-Rocket code. |
+
+`from_env` and `new` install the crate's `tracing` hooks on the client, see [Observability](../../production/observability/). `new` sets them after your builder's own `on_retry` and `on_error`, so those two callbacks are replaced. `with_client` keeps the client as you built it.
+
+Chain `.error_handler(false)` on any constructor to turn the error handler off.
+
+## Example
+
+```rust
+use std::time::Duration;
+
+use poli_page_rocket::PoliPageFairing;
+
+#[rocket::launch]
+fn rocket() -> _ {
+    let builder = poli_page::PoliPage::builder()
+        .api_key(std::env::var("POLI_PAGE_API_KEY").unwrap_or_default())
+        .timeout(Duration::from_secs(30));
+
+    rocket::build().attach(PoliPageFairing::new(builder))
+}
+```
+
+## See also
+
+- [Client access](../client-access/)
+- [API reference](../../reference/api/)

@@ -1,0 +1,60 @@
+---
+title: Install
+description: Add poli-page-rocket and poli-page to your crate, set your API key and attach PoliPageFairing.
+---
+
+The Rocket integration ships as the `poli-page-rocket` crate on crates.io. It wraps the Rust SDK, `poli-page`, in a Rocket fairing and a set of responders, so you add both crates and attach the fairing once.
+
+## Requirements
+
+- Rust `1.93` or newer (the MSRV, declared as `rust-version` in `Cargo.toml`)
+- Rocket `0.5`
+- `poli-page` `0.13`, which means `0.13.0` or newer within `0.13` (`poli-page = "0.13"`)
+- A Poli Page API key, from the [dashboard](https://app.poli.page/settings/api-keys)
+
+CI tests the crate on Rust stable, beta and `1.93`.
+
+## Install the crates
+
+```bash
+cargo add poli-page-rocket poli-page@0.13 rocket
+```
+
+## Set your API key
+
+Set the key in the environment before Rocket boots:
+
+```bash
+# .env (loaded by your host application, not by this crate)
+POLI_PAGE_API_KEY=pp_sandbox_xxx
+```
+
+A key is `pp_{environment}_{32 lowercase hex}` and belongs to one environment of your organization. The key alone selects the environment, and "Counted" means the render counts toward the organization's monthly PDF quota:
+
+| Environment | Key | Watermark | Counted |
+| --- | --- | --- | --- |
+| `sandbox` (every org) | `pp_sandbox_…` | yes | no |
+| `live` (every org, deletable on Pro+) | `pp_live_…` | no | yes |
+| created on Pro+ (e.g. `staging`) | `pp_staging_…` | no | yes |
+
+The crate reads from `std::env` only. It does not load a `.env` file: your application does, for example with [`dotenvy`](https://crates.io/crates/dotenvy), as the example app does.
+
+## Attach the fairing
+
+`PoliPageFairing` builds the SDK client when Rocket ignites and puts it in managed state. Ignite fails when `POLI_PAGE_API_KEY` is missing or empty. Any other value ignites: the Poli Page API decides whether a key is valid, so a value that does not look like `pp_{environment}_{32 lowercase hex}` only logs one warning under the `poli_page_rocket` target.
+
+## Example
+
+```rust
+use poli_page_rocket::PoliPageFairing;
+
+#[rocket::launch]
+fn rocket() -> _ {
+    rocket::build().attach(PoliPageFairing::from_env())
+}
+```
+
+## See also
+
+- [Quick start](../quick-start/)
+- [Configuration](../../concepts/configuration/)

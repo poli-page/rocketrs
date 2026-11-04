@@ -1,0 +1,35 @@
+---
+title: Observability
+description: The tracing events poli-page-rocket emits for SDK retries and terminal errors, under the poli_page_rocket target.
+---
+
+The fairing bridges two SDK events to the `tracing` crate. You see them with any `tracing` subscriber, filtered by the `poli_page_rocket` target.
+
+## Signals
+
+Both hooks are installed by `PoliPageFairing::from_env()` and `PoliPageFairing::new(builder)`. `with_client(client)` leaves the client's own hooks alone, so a client you built yourself emits nothing unless you set the hooks on it.
+
+| Event | Level | Message | Fields |
+| --- | --- | --- | --- |
+| SDK retry attempt | `WARN` | `poli_page retry` | `attempt`, `delay_ms`, `code`, `status`, `request_id` |
+| SDK terminal error | `ERROR` | `poli_page terminal error` | `code`, `status`, `request_id`, `message` |
+
+The fairing also logs under the same target when ignite fails (a missing key, an invalid option, a builder error) and when a key does not match the expected format. The warning for a malformed key names the format and shows no part of the key.
+
+## Example
+
+```rust
+use tracing_subscriber::EnvFilter;
+
+fn init_tracing() {
+    // Keep the integration's events at warn and above, everything else at info.
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new("info,poli_page_rocket=warn"))
+        .init();
+}
+```
+
+## See also
+
+- [Configuration](../../concepts/configuration/)
+- [Errors](../errors/)
