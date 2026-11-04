@@ -12,7 +12,10 @@
 #     carries a stable tag vX.Y.Z with the release's major.minor;
 #   - fails unless Cargo.toml and example-app/Cargo.toml require poli-page
 #     from crates.io as "X.Y" or "X.Y.Z" (Cargo's default caret: ^X.Y) with
-#     the release's major.minor.
+#     the release's major.minor, with no [patch], [replace] or `paths`
+#     override of it in the manifests or in a .cargo/config(.toml);
+#   - fails unless Cargo.lock and example-app/Cargo.lock resolve poli-page
+#     from crates.io at a version of the release's major.minor.
 # Patch numbers are free.
 #
 # Run by the Release workflow. Needs cargo and jq. API_CONTRACT_REMOTE
@@ -59,7 +62,54 @@ for manifest in Cargo.toml example-app/Cargo.toml; do
         fi
     done <<<"$deps"
 done
-echo "poli-page ^$release_minor is required from crates.io, matching release v$version"
+
+# No [patch] or [replace] of poli-page (nor a `paths` override), in either
+# manifest or in a Cargo config file of the repository: the tests would run
+# against another SDK than the one the published crate gets. Whitespace and
+# quotes are dropped first, so `"poli-page:0.13.0" = …` reads poli-page:0.13.0=….
+for file in Cargo.toml example-app/Cargo.toml \
+    .cargo/config .cargo/config.toml example-app/.cargo/config example-app/.cargo/config.toml; do
+    [ -f "$REPO_ROOT/$file" ] || continue
+    hit="$(tr -d " \t\"'" <"$REPO_ROOT/$file" | awk '
+        /^#/ { next }
+        /^\[/ {
+            section = $0
+            if (section ~ /^\[(patch|replace)(\]|\.)/ && section ~ /poli-page/) { print NR ": " $0; exit }
+            next
+        }
+        section ~ /^\[(patch|replace)(\]|\.)/ && ($0 ~ /^([^=]*\.)?poli-page[=.:]/ || $0 ~ /package=poli-page[,}]/) { print NR ": " $0; exit }
+        section == "" && $0 ~ /^(patch|replace)\./ && $0 ~ /poli-page/ { print NR ": " $0; exit }
+        section == "" && $0 ~ /^paths=/ { print NR ": " $0; exit }
+    ')"
+    [ -z "$hit" ] || fail "$file overrides poli-page (line $hit): remove the [patch], [replace] or paths entry before a release"
+done
+
+# What the committed lock files resolve: poli-page from crates.io, at a
+# version of the release's major.minor, and no unused patch of it.
+for lock in Cargo.lock example-app/Cargo.lock; do
+    [ -f "$REPO_ROOT/$lock" ] || fail "$lock not found"
+    entries="$(awk '
+        function flush() { if (name == "poli-page") print kind "\t" ver "\t" src }
+        /^\[/ { flush(); kind = $0; name = ver = src = ""; next }
+        $1 == "name" { name = $3; gsub(/"/, "", name) }
+        $1 == "version" { ver = $3; gsub(/"/, "", ver) }
+        $1 == "source" { src = $3; gsub(/"/, "", src) }
+        END { flush() }
+    ' "$REPO_ROOT/$lock")"
+    [ -n "$entries" ] || fail "$lock resolves no poli-page"
+    while IFS=$'\t' read -r kind ver src; do
+        if [ "$kind" != "[[package]]" ]; then
+            fail "$lock records a $kind entry for poli-page $ver: remove the patch and update the lock"
+        fi
+        if [ "$src" != "$CRATES_IO" ]; then
+            fail "$lock resolves poli-page $ver from '${src:-a path}', not from crates.io"
+        fi
+        if ! [[ "$ver" =~ ^([0-9]+)\.([0-9]+)\. ]] || [ "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" != "$release_minor" ]; then
+            fail "release v$version needs poli-page $release_minor.x, but $lock resolves poli-page $ver: run cargo update -p poli-page"
+        fi
+    done <<<"$entries"
+done
+echo "poli-page ^$release_minor is required and locked from crates.io, matching release v$version"
 
 # A live `uses:` line only, so a commented-out pin does not count.
 pin_pattern='s/^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*poli-page\/api-contract@([0-9a-f]{40}).*/\2/p'

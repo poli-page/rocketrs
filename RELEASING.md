@@ -36,25 +36,36 @@ The protected environment comes first. A workflow that names an environment that
 2. Merge the release PR on `main` and wait for CI to be green. Note the merge commit's SHA.
 3. On crates.io, log in with the GitHub account that will own the crate. Verify the account's email first under Account Settings: crates.io refuses a publish from an unverified account.
 4. Under Account Settings → API Tokens, create a token:
-   - Scopes: `publish-new` and `change-owners`.
+   - Scopes: `publish-new`. Add `change-owners` only if you will add a team as an owner (the optional step 6).
    - Crates: restricted to `poli-page-rocket`.
    - A short expiry.
-5. From a clean checkout of the merge commit, without leaving the token in shell history:
+5. Publish from a fresh clone of the merge commit. Paste the block below into bash or zsh, with the merge commit's SHA in the first line. It clones into a new temporary directory, checks that the commit is `origin/main`'s head and that the tree is clean, runs the release check, the package list and a dry run, then reads the token without echoing it (so it stays out of shell history) and publishes. Any failed step stops the chain before the publish. The last line removes the token from the shell whatever happened.
    ```bash
-   git switch --detach <merge sha>
-   ./scripts/check-release-versions.sh v0.13.0
-   cargo package --list
-   cargo publish --dry-run --locked
-   read -rs CARGO_REGISTRY_TOKEN && export CARGO_REGISTRY_TOKEN
-   cargo publish --locked
+   sha='<merge sha>'
+   dir="$(mktemp -d)" && git clone https://github.com/poli-page/rocketrs.git "$dir/rocketrs" && cd "$dir/rocketrs" \
+     && git switch --detach "$sha" \
+     && test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" \
+     && test -z "$(git status --porcelain)" \
+     && ./scripts/check-release-versions.sh v0.13.0 \
+     && cargo package --list --locked \
+     && cargo publish --dry-run --locked \
+     && printf 'crates.io token: ' && read -rs CARGO_REGISTRY_TOKEN && echo && export CARGO_REGISTRY_TOKEN \
+     && cargo publish --locked \
+     || echo 'Stopped before the publish, or the publish failed: see the output above. The commit must be the head of origin/main and the tree clean.'
+   unset CARGO_REGISTRY_TOKEN
    ```
-6. Optional: if the crate should not belong to one account, add the organisation's team as an owner, in the same shell: `cargo owner --add github:poli-page:<team> poli-page-rocket`. Then run `unset CARGO_REGISTRY_TOKEN`.
+6. Optional: if the crate should not belong to one account, add the organisation's team as an owner (the token needs `change-owners`), in the same shell:
+   ```bash
+   printf 'crates.io token: ' && read -rs CARGO_REGISTRY_TOKEN && echo && export CARGO_REGISTRY_TOKEN \
+     && cargo owner --add 'github:poli-page:<team>' poli-page-rocket
+   unset CARGO_REGISTRY_TOKEN
+   ```
 7. On the crate's page, Settings → Trusted Publishing, add a GitHub publisher:
    - Repository owner `poli-page`, repository `rocketrs`.
    - Workflow `release.yml`.
    - Environment `crates-io-publish`.
 8. Revoke the token from step 4.
-9. Tag the published commit and push the tag: `git tag v0.13.0 <merge sha> && git push origin v0.13.0`. Approve the `publish` job. It skips the upload (0.13.0 is already on crates.io), checks the OIDC exchange, and creates the GitHub release.
+9. Tag the published commit and push the tag, in the same shell as step 5 (from another clone, fetch first and put the SHA in place of `"$sha"`): `git tag v0.13.0 "$sha" && git push origin v0.13.0`. Approve the `publish` job. It skips the upload (0.13.0 is already on crates.io), checks the OIDC exchange, and creates the GitHub release.
 10. Check that `https://docs.rs/poli-page-rocket/0.13.0` built (a few minutes after the publish).
 
 ## Each release
