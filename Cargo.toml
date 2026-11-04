@@ -1,6 +1,6 @@
 [package]
 name          = "poli-page-rocket"
-version       = "0.11.0"
+version       = "0.13.0"
 edition       = "2021"
 rust-version  = "1.93"
 authors       = ["Poli Page"]
@@ -27,7 +27,7 @@ name = "poli_page_rocket"
 path = "src/lib.rs"
 
 [dependencies]
-poli-page    = "0.11.0"
+poli-page    = "0.13"
 rocket       = { version = "0.5", default-features = false }
 tracing      = "0.1"
 bytes        = "1.7"

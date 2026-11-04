@@ -1,13 +1,21 @@
 # Releasing `poli-page-rocket`
 
-Releases are tag-driven, as in the [`poli-page` SDK](https://github.com/poli-page/sdk-rust). Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`:
+Releases are tag-driven, as in the [`poli-page` SDK](https://github.com/poli-page/sdk-rust).
 
-1. **verify**: checks that the tag equals the `Cargo.toml` version and that `CHANGELOG.md` has a `## [X.Y.Z] - YYYY-MM-DD` section, then runs `cargo fmt`, `clippy -D warnings`, `cargo doc`, the crate's tests, the example app's format, clippy and tests with the API contract pinned in `ci.yml`, `cargo deny check advisories`, and `cargo publish --dry-run`.
+## Versions
+
+`poli-page-rocket` shares its major.minor with the Poli Page API: crate `0.13.x` talks to API `0.13`, passes the [API contract](https://github.com/poli-page/api-contract) `v0.13.0`, and requires the `poli-page` SDK of the same minor from crates.io (`poli-page = "0.13"`, which Cargo reads as `^0.13`: `>=0.13.0, <0.14.0`). Patch numbers are free: a fix to the crate alone is a patch, whatever the API's or the SDK's patch. A change of the API contract, a new feature, and a raise of the minimum Rust (MSRV) or Rocket version are each a minor. The crate may skip minors when it has nothing to ship for one. The Release workflow refuses a tag whose major.minor differs from the contract version pinned in `.github/workflows/ci.yml` (and `release.yml`, which must pin the same commit) or from the `poli-page` requirement in `Cargo.toml` and `example-app/Cargo.toml`.
+
+## How a release runs
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`:
+
+1. **verify**: checks that the tag equals the `Cargo.toml` version and that `CHANGELOG.md` has a `## [X.Y.Z] - YYYY-MM-DD` section. `scripts/check-release-versions.sh` then checks the versions: the pinned API contract commit must carry a stable tag `vX.Y.Z` of the tag's major.minor (the `# vX.Y.Z` comment next to the pin is not trusted, and both workflows must pin the same commit), and `poli-page` must be required from crates.io as `"X.Y"` (or `"X.Y.Z"`) of the tag's major.minor. The error names both versions. The job then runs `cargo fmt`, `clippy -D warnings`, `cargo doc`, the crate's tests, the example app's format, clippy and tests with the API contract pinned in `ci.yml`, `cargo deny check advisories`, and `cargo publish --dry-run`.
 2. **publish**: waits for an approval on the `crates-io-publish` environment, exchanges the job's OIDC token for a short-lived crates.io token (Trusted Publishing, no stored secret), runs `cargo publish`, and creates the GitHub release with the CHANGELOG section as notes. A version already on crates.io is not uploaded again; the release is still created.
 
 A pushed tag is the only trigger; there is no manual-run path.
 
-Crate: [`poli-page-rocket`](https://crates.io/crates/poli-page-rocket) on crates.io. The name was free when `0.11.0` was prepared (`https://crates.io/api/v1/crates/poli-page-rocket` answered 404).
+Crate: [`poli-page-rocket`](https://crates.io/crates/poli-page-rocket) on crates.io. The name was free when `0.13.0` was prepared (`https://crates.io/api/v1/crates/poli-page-rocket` answered 404).
 
 What the crate ships: the `include` list in `Cargo.toml` (`src/`, `README.md`, `CHANGELOG.md`, both licences), plus the `Cargo.toml`, `Cargo.lock` and `.cargo_vcs_info.json` cargo adds. The example app, the tests and local tooling (CI, lint and formatter config) stay out. Check with:
 
@@ -15,9 +23,9 @@ What the crate ships: the `include` list in `Cargo.toml` (`src/`, `README.md`, `
 cargo package --list
 ```
 
-## First release (one time, 0.11.0)
+## First release (one time, 0.13.0)
 
-crates.io has no "pending publisher": Trusted Publishing can be configured only on a crate that exists. So `0.11.0` is published by hand, then the workflow takes over.
+crates.io has no "pending publisher": Trusted Publishing can be configured only on a crate that exists. So `0.13.0` is published by hand, then the workflow takes over.
 
 The protected environment comes first. A workflow that names an environment that does not exist makes GitHub create it with no protection rules. Once the trusted publisher accepts `crates-io-publish`, an unprotected environment would let any tag push publish with no approval.
 
@@ -34,7 +42,9 @@ The protected environment comes first. A workflow that names an environment that
 5. From a clean checkout of the merge commit, without leaving the token in shell history:
    ```bash
    git switch --detach <merge sha>
+   ./scripts/check-release-versions.sh v0.13.0
    cargo package --list
+   cargo publish --dry-run --locked
    read -rs CARGO_REGISTRY_TOKEN && export CARGO_REGISTRY_TOKEN
    cargo publish --locked
    ```
@@ -44,13 +54,14 @@ The protected environment comes first. A workflow that names an environment that
    - Workflow `release.yml`.
    - Environment `crates-io-publish`.
 8. Revoke the token from step 4.
-9. Tag the published commit and push the tag: `git tag v0.11.0 <merge sha> && git push origin v0.11.0`. Approve the `publish` job. It skips the upload (0.11.0 is already on crates.io), checks the OIDC exchange, and creates the GitHub release.
-10. Check that `https://docs.rs/poli-page-rocket/0.11.0` built (a few minutes after the publish).
+9. Tag the published commit and push the tag: `git tag v0.13.0 <merge sha> && git push origin v0.13.0`. Approve the `publish` job. It skips the upload (0.13.0 is already on crates.io), checks the OIDC exchange, and creates the GitHub release.
+10. Check that `https://docs.rs/poli-page-rocket/0.13.0` built (a few minutes after the publish).
 
 ## Each release
 
 1. Bump `version` in `Cargo.toml`, and run `cargo check` here and in `example-app/` so both `Cargo.lock` files follow.
-2. Update the version shown in `example-app/static/index.html`.
+2. Update the version shown in `example-app/static/index.html` (two labels), and the compatibility table in `README.md` when the minor, the MSRV or the Rocket version changes.
+   For a new minor `X.Y`: require `poli-page = "X.Y"` in `Cargo.toml` and `example-app/Cargo.toml` and run `cargo update -p poli-page` in both directories, pin the API contract's `vX.Y.0` commit in `.github/workflows/ci.yml` and `release.yml`, and check both with `./scripts/check-release-versions.sh X.Y.Z` (it needs `cargo`, `jq` and network access to list the contract's tags).
 3. Move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in `CHANGELOG.md` and update the compare links. Keep the heading exactly that shape: the workflow checks it and uses the section as the release notes.
 4. Commit `chore: release X.Y.Z` through a PR on `main` and wait for CI to be green.
 5. Tag the merge commit and push the tag:

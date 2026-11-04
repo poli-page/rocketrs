@@ -1083,9 +1083,9 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "poli-page"
-version = "0.11.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "873bcf3027da04a1e8d3132d7c6a4bd4882304721cc3034da4bb486ab94ffec1"
+checksum = "f012057a03acbcaeb77878a848ac952f01b03d4504a0b9473579018d977d6030"
 dependencies = [
  "bytes",
  "futures-core",
@@ -1093,6 +1093,7 @@ dependencies = [
  "httpdate",
  "rand",
  "reqwest",
+ "rustix",
  "serde",
  "serde_json",
  "thiserror",
@@ -1104,7 +1105,7 @@ dependencies = [
 
 [[package]]
 name = "poli-page-rocket"
-version = "0.11.0"
+version = "0.13.0"
 dependencies = [
  "bytes",
  "futures-core",
