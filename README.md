@@ -1,11 +1,20 @@
 # poli-page-rocket
 
+[![Crates.io](https://img.shields.io/crates/v/poli-page-rocket?style=flat&logo=rust&logoColor=ffffff&label=Crates.io)](https://crates.io/crates/poli-page-rocket)
+[![Downloads](https://img.shields.io/crates/d/poli-page-rocket?style=flat&logo=rust&logoColor=ffffff&label=Downloads)](https://crates.io/crates/poli-page-rocket)
+[![Ci](https://img.shields.io/github/actions/workflow/status/poli-page/rocketrs/ci.yml?branch=main&style=flat&logo=githubactions&logoColor=ffffff&label=Ci)](https://github.com/poli-page/rocketrs/actions/workflows/ci.yml)
+[![Codeql](https://img.shields.io/github/actions/workflow/status/poli-page/rocketrs/codeql.yml?branch=main&style=flat&logo=github&logoColor=ffffff&label=Codeql)](https://github.com/poli-page/rocketrs/actions/workflows/codeql.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/poli-page/rocketrs?style=flat&logo=codecov&logoColor=ffffff&label=Coverage)](https://codecov.io/gh/poli-page/rocketrs)
+[![Msrv](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpoli-page%2Frocketrs%2Fmain%2FCargo.toml&query=%24.package.rust-version&prefix=v&style=flat&logo=rust&logoColor=ffffff&label=Msrv)](https://www.rust-lang.org/)
+[![Rocket](https://img.shields.io/badge/Rocket-0.5-blue?style=flat&logo=rocket&logoColor=ffffff)](https://rocket.rs/)
+[![Lint](https://img.shields.io/badge/Lint-clippy-blue?style=flat&logo=rust&logoColor=ffffff)](https://github.com/rust-lang/rust-clippy)
+[![Deps](https://img.shields.io/badge/Deps-up%20to%20date-brightgreen?style=flat&logo=rust&logoColor=ffffff)](https://deps.rs/repo/github/poli-page/rocketrs)
+[![Docs](https://img.shields.io/badge/Docs-online-brightgreen?style=flat&logo=readthedocs&logoColor=ffffff)](https://poli-page.github.io/rocketrs/)
+[![License](https://img.shields.io/github/license/poli-page/rocketrs?style=flat&logo=gnu&logoColor=ffffff&label=License)](LICENSE-MIT)
+
 > Render Poli Page documents as Rocket responders.
 
-[![CI](https://github.com/poli-page/rocketrs/actions/workflows/ci.yml/badge.svg)](https://github.com/poli-page/rocketrs/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/poli-page-rocket.svg)](https://crates.io/crates/poli-page-rocket)
-[![docs.rs](https://img.shields.io/docsrs/poli-page-rocket)](https://docs.rs/poli-page-rocket)
-[![license: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+→ **Documentation**: https://poli-page.github.io/rocketrs/
 
 ## About
 
