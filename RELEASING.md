@@ -17,7 +17,7 @@ A pushed tag is the only trigger; there is no manual-run path.
 
 Crate: [`poli-page-rocket`](https://crates.io/crates/poli-page-rocket) on crates.io. The name was free when `0.13.0` was prepared (`https://crates.io/api/v1/crates/poli-page-rocket` answered 404).
 
-What the crate ships: the `include` list in `Cargo.toml` (`src/`, `README.md`, `CHANGELOG.md`, both licences), plus the `Cargo.toml`, `Cargo.lock` and `.cargo_vcs_info.json` cargo adds. The example app, the tests and local tooling (CI, lint and formatter config) stay out. Check with:
+What the crate ships: the `include` list in `Cargo.toml` (`src/`, `README.md`, `CHANGELOG.md`, `LICENSE`), plus the `Cargo.toml`, `Cargo.lock` and `.cargo_vcs_info.json` cargo adds. The example app, the tests and local tooling (CI, lint and formatter config) stay out. Check with:
 
 ```bash
 cargo package --list

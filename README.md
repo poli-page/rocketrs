@@ -10,7 +10,7 @@
 [![Lint](https://img.shields.io/badge/Lint-clippy-blue?style=flat&logo=rust&logoColor=ffffff)](https://github.com/rust-lang/rust-clippy)
 [![Deps](https://img.shields.io/badge/Deps-up%20to%20date-brightgreen?style=flat&logo=rust&logoColor=ffffff)](https://deps.rs/repo/github/poli-page/rocketrs)
 [![Docs](https://img.shields.io/badge/Docs-online-brightgreen?style=flat&logo=readthedocs&logoColor=ffffff)](https://poli-page.github.io/rocketrs/)
-[![License](https://img.shields.io/github/license/poli-page/rocketrs?style=flat&logo=gnu&logoColor=ffffff&label=License)](LICENSE-MIT)
+[![License](https://img.shields.io/github/license/poli-page/rocketrs?style=flat&logo=gnu&logoColor=ffffff&label=License)](LICENSE)
 
 > Render Poli Page documents as Rocket responders.
 
@@ -207,6 +207,6 @@ Without `POLI_CONTRACT` the suite is skipped (and fails when `CI` is set). `exam
 
 ## License
 
-Dual-licensed under MIT ([LICENSE-MIT](LICENSE-MIT)) or Apache-2.0 ([LICENSE-APACHE](LICENSE-APACHE)) at your option.
+[MIT](LICENSE) © Poli Page
 
 [`poli-page`]: https://crates.io/crates/poli-page
