@@ -57,6 +57,11 @@ impl PoliPageFairing {
     }
 
     /// Build a fairing from an already-configured `PoliPageBuilder`.
+    ///
+    /// At ignite, the fairing sets its `tracing` hooks on the builder with
+    /// `on_retry` and `on_error`, which replaces any hooks the builder
+    /// already carries. To keep your own hooks, build the client and use
+    /// [`with_client`](Self::with_client).
     pub fn new(builder: poli_page::PoliPageBuilder) -> Self {
         Self {
             source: Mutex::new(Source::Builder(Box::new(builder))),

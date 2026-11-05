@@ -89,7 +89,7 @@ fn rocket() -> _ {
 
 ## Configuration
 
-`PoliPageFairing::from_env()` reads the variables below. To configure programmatically, pass a fully-built `poli_page::PoliPageBuilder` to `PoliPageFairing::new(builder)`, or wrap an existing client with `PoliPageFairing::with_client(client)`.
+`PoliPageFairing::from_env()` reads the variables below. To configure programmatically, pass a `poli_page::PoliPageBuilder` to `PoliPageFairing::new(builder)`, or wrap an existing client with `PoliPageFairing::with_client(client)`. `from_env` and `new` install the crate's `tracing` hooks: `new` sets them on your builder, replacing any `on_retry` or `on_error` it carries. For your own hooks, build the client and pass it to `with_client`, which keeps it as built.
 
 Every constructor also turns on the [error handler](#error-handler); chain `.error_handler(false)` to turn it off.
 
@@ -174,7 +174,7 @@ POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 ## Going further
 
 - Streaming — forward `PdfResponse::stream` from `client.render().pdf_stream(...)` with `Transfer-Encoding: chunked`.
-- Observability — the default hooks bridge SDK `on_retry` and `on_error` events to `tracing` under the `poli_page_rocket` target.
+- Observability — with `from_env` and `new`, the fairing's hooks bridge SDK `on_retry` and `on_error` events to `tracing` under the `poli_page_rocket` target.
 - [API reference](https://docs.rs/poli-page-rocket) — every public symbol with its type signature and documentation.
 
 ## Compatibility
