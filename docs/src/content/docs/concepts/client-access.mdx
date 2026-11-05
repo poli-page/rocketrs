@@ -1,0 +1,45 @@
+---
+title: Client access
+description: Reach the Poli Page client from a Rocket route through managed state, with &State<PoliPageClient> or the PoliPage request guard.
+---
+
+The fairing inserts the SDK client into Rocket's managed state as `PoliPageClient`. A route reaches it in one of two ways, and both give you the same client.
+
+## PoliPageClient
+
+`&State<PoliPageClient>` is the canonical Rocket pattern. `PoliPageClient` is a newtype around `poli_page::PoliPage`. It is `Clone + Send + Sync + 'static`, and cloning is cheap because the SDK client is `Arc`-internal. It has three accessors:
+
+- `client()` borrows the underlying `poli_page::PoliPage`.
+- `render()` borrows the `render` namespace: `pdf`, `pdf_stream` and `document`.
+- `documents()` borrows the `documents` namespace: `get`, `preview`, `thumbnails` and `delete`.
+
+The wrapped client is also a public field, `client.0`.
+
+## PoliPage request guard
+
+`PoliPage<'_>` is a request guard that yields `&poli_page::PoliPage`, with a little less typing. It reads the same managed state. If the fairing is not attached, the guard logs an error under the `poli_page_rocket` target and forwards the request with `500`.
+
+## Example
+
+```rust
+use poli_page_rocket::{PoliPage, PoliPageClient, PoliPageError};
+use rocket::{get, State};
+
+#[get("/by-state/<id>")]
+async fn by_state(client: &State<PoliPageClient>, id: &str) -> Result<String, PoliPageError> {
+    let doc = client.documents().get(id).await?;
+    Ok(doc.document_id)
+}
+
+#[get("/by-guard/<id>")]
+async fn by_guard(sdk: PoliPage<'_>, id: &str) -> Result<String, PoliPageError> {
+    let doc = sdk.0.documents.get(id).await?;
+    Ok(doc.document_id)
+}
+```
+
+## See also
+
+- [Configuration](../configuration/)
+- [Responses](../responses/)
+- [Testing](../../production/testing/)

@@ -1,0 +1,61 @@
+---
+title: Testing
+description: Test routes that return PoliPageError with Rocket's local client and a constructed poli_page::Error.
+---
+
+The seam to fake is the error. A test mounts a route that returns the SDK error you want, attaches the fairing, and checks what the handler answers, with no network call.
+
+## Fake an error
+
+`poli_page::Error` is a public enum, so a test builds the variant it needs. Route it through `Err(error.into())` and Rocket's `local` client dispatches the request in process.
+
+## Attach with a client
+
+Use `PoliPageFairing::with_client(client)` with a client built from a sandbox-format key, such as `pp_sandbox_0123456789abcdef0123456789abcdef`. Building the client makes no request. With `from_env()` in a test, set `POLI_PAGE_API_KEY` first and run those tests serially, because the environment is process-wide.
+
+## Example
+
+```rust
+use poli_page::Error;
+use poli_page_rocket::{PoliPageError, PoliPageFairing};
+use rocket::http::Status;
+use rocket::local::asynchronous::Client;
+use rocket::{get, routes};
+use serde_json::Value;
+
+#[get("/missing")]
+fn missing() -> Result<&'static str, PoliPageError> {
+    Err(Error::NotFound {
+        status: 404,
+        code: "TEMPLATE_NOT_FOUND".into(),
+        message: "Template 'invoice' not found in project 'billing'.".into(),
+        request_id: Some("req_123".into()),
+        source: None,
+    }
+    .into())
+}
+
+#[rocket::async_test]
+async fn answers_the_error_as_json() {
+    let sdk = poli_page::PoliPage::builder()
+        .api_key("pp_sandbox_0123456789abcdef0123456789abcdef")
+        .build()
+        .unwrap();
+    let rocket = rocket::build()
+        .attach(PoliPageFairing::with_client(sdk))
+        .mount("/", routes![missing]);
+    let client = Client::tracked(rocket).await.unwrap();
+
+    let response = client.get("/missing").dispatch().await;
+
+    assert_eq!(response.status(), Status::NotFound);
+    let body: Value = serde_json::from_str(&response.into_string().await.unwrap()).unwrap();
+    assert_eq!(body["code"], "TEMPLATE_NOT_FOUND");
+    assert_eq!(body["requestId"], "req_123");
+}
+```
+
+## See also
+
+- [Errors](../errors/)
+- [Client access](../../concepts/client-access/)

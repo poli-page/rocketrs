@@ -33,3 +33,11 @@ target
 CLAUDE.md
 docs/plan/
 docs/spec/
+
+# Docs site (Astro Starlight)
+docs/node_modules/
+docs/dist/
+docs/.astro/
+
+# cargo-llvm-cov report (CI uploads it to Codecov)
+/lcov.info

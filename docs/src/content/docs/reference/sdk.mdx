@@ -1,0 +1,22 @@
+---
+title: SDK
+description: The Rust SDK under poli-page-rocket, and where its documentation lives.
+---
+
+`poli-page-rocket` wraps the Poli Page Rust SDK, [`poli-page`](https://crates.io/crates/poli-page). The client you take from `&State<PoliPageClient>`, its `render` and `documents` namespaces, and the `poli_page::Error` your routes convert are the SDK's own objects, so the SDK's documentation covers every method and type they have.
+
+→ **Rust SDK documentation**: https://poli-page.github.io/sdk-rust/
+
+## Versions
+
+The crate requires `poli-page` `0.13`, which Cargo reads as `>=0.13.0, <0.14.0`. Both share the major.minor of the Poli Page API.
+
+| `poli-page-rocket` | `poli-page` | Rocket | Rust (MSRV) |
+| --- | --- | --- | --- |
+| `0.13.x` | `0.13` | `0.5` | `1.93` |
+
+## Where to look
+
+- Render input, render methods and stored documents: the SDK's [Quick start](https://poli-page.github.io/sdk-rust/getting-started/quick-start/) and [Configuration](https://poli-page.github.io/sdk-rust/concepts/configuration/) pages.
+- Retries, timeouts and cancellation: the SDK's [Retries and idempotency](https://poli-page.github.io/sdk-rust/production/retries-and-idempotency/) and [Cancellation](https://poli-page.github.io/sdk-rust/production/cancellation/) pages.
+- Every error code: the SDK's [Errors](https://poli-page.github.io/sdk-rust/production/errors/) page.
