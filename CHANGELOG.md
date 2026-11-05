@@ -4,6 +4,10 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
+### Changed
+
+- The crate is now licensed under MIT only (it was `MIT OR Apache-2.0`). Versions already published on crates.io stay available under `MIT OR Apache-2.0`.
+
 ## [0.13.0] - 2026-11-04
 
 First release on crates.io. The crate shares its major.minor with the Poli Page API (see [RELEASING.md](https://github.com/poli-page/rocketrs/blob/main/RELEASING.md#versions)): it requires the `poli-page` SDK 0.13 (`poli-page = "0.13"`, that is `>=0.13.0, <0.14.0`) and passes the API contract v0.13.0. Entries in Changed and Removed describe changes to the pre-release code on `main`; neither `0.1.0` nor the `0.11.0` prepared on 2026-10-30 was ever published.
