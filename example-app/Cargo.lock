@@ -1083,9 +1083,9 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "poli-page"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f012057a03acbcaeb77878a848ac952f01b03d4504a0b9473579018d977d6030"
+checksum = "e8cbfb4bb28e7297f1b6cc5eb8a953d21ff124a9b0593c5815efcfeca335dbed"
 dependencies = [
  "bytes",
  "futures-core",
