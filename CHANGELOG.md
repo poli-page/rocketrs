@@ -4,6 +4,15 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-16
+
+Requires the `poli-page` SDK 0.15 (`poli-page = "0.15"`, that is `>=0.15.0, <0.16.0`) and passes the API contract v0.15.0. There is no 0.14 release of the crate.
+
+### Changed
+
+- Depends on `poli-page` `0.15` from crates.io (was `0.13`).
+- Contract tests run against the API contract v0.15.0 (contract format 2). The `impl` cases the example app runs are unchanged from v0.13.0.
+
 ## [0.13.1] - 2026-11-05
 
 Licensed under MIT only; 0.13.0 and earlier stay available under MIT OR Apache-2.0.
@@ -48,6 +57,7 @@ Breaking: requires the `poli-page` SDK 0.13, which carries the environments cont
 ### Fixed
 - `PdfResponse` / `headers::content_disposition`: control characters (CR/LF, TAB, DEL, C1) are now stripped from the `Content-Disposition` filename instead of surviving as `_` in the ASCII fallback and as `%0D%0A`-style escapes in `filename*`; `\` and `"` stay escaped as quoted-pairs.
 
-[Unreleased]: https://github.com/poli-page/rocketrs/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/poli-page/rocketrs/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/poli-page/rocketrs/compare/v0.13.1...v0.15.0
 [0.13.1]: https://github.com/poli-page/rocketrs/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/poli-page/rocketrs/releases/tag/v0.13.0
