@@ -4,7 +4,7 @@ All notable changes to `poli-page-rocket` are documented here. Format follows [K
 
 ## [Unreleased]
 
-## [0.15.0] - 2026-11-16
+## [0.15.0] - 2026-11-17
 
 Requires the `poli-page` SDK 0.15 (`poli-page = "0.15"`, that is `>=0.15.0, <0.16.0`) and passes the API contract v0.15.0. There is no 0.14 release of the crate.
 

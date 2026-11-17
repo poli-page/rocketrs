@@ -935,9 +935,9 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "poli-page"
-version = "0.13.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8cbfb4bb28e7297f1b6cc5eb8a953d21ff124a9b0593c5815efcfeca335dbed"
+checksum = "b06d7f77852dde7e4d87514f175ee524688d65907bb5f265de5ee5b4d96777e4"
 dependencies = [
  "bytes",
  "futures-core",
@@ -957,7 +957,7 @@ dependencies = [
 
 [[package]]
 name = "poli-page-rocket"
-version = "0.13.1"
+version = "0.15.0"
 dependencies = [
  "bytes",
  "futures-core",
