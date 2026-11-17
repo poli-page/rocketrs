@@ -35,12 +35,12 @@ You attach a fairing, the SDK client lands in Rocket's managed state, and your r
 
 - Rust `1.93` or newer (MSRV)
 - Rocket `0.5`
-- [`poli-page`] `0.13`: `0.13.0` or newer within `0.13` (`poli-page = "0.13"`)
+- [`poli-page`] `0.15`: `0.15.0` or newer within `0.15` (`poli-page = "0.15"`)
 
 ## Install
 
 ```bash
-cargo add poli-page-rocket poli-page@0.13 rocket
+cargo add poli-page-rocket poli-page@0.15 rocket
 ```
 
 Set the API key before booting Rocket. Grab one from the [Poli Page dashboard](https://app.poli.page/settings/api-keys). A key is `pp_{environment}_{32 lowercase hex}` and belongs to one environment of your organization, which decides how its renders are treated ("Counted" means the render counts toward the organization's monthly PDF quota):
@@ -181,6 +181,7 @@ POLI_PAGE_API_KEY=pp_sandbox_... cargo run --bin example-app
 
 | `poli-page-rocket` | Rocket | Rust (MSRV) | `poli-page` SDK |
 |---|---|---|---|
+| `0.15.x` | `0.5` | `1.93` | `0.15` |
 | `0.13.x` | `0.5` | `1.93` | `0.13` |
 
 Rocket `0.5` is the only stable line at the time of writing. MSRV is bumped at most once per minor release.
