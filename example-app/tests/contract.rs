@@ -47,7 +47,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 /// The contract layout this file reads.
-const KNOWN_FORMAT_VERSION: u64 = 1;
+const KNOWN_FORMAT_VERSION: u64 = 2;
 
 /// The app's API key: an environment key, `pp_sandbox_` + 32 hex.
 const TEST_API_KEY: &str = "pp_sandbox_0123456789abcdef0123456789abcdef";
@@ -58,7 +58,7 @@ const CASE_TIMEOUT: Duration = Duration::from_mins(1);
 const SKIP_LIST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/contract-skip.json");
 
 // ---------------------------------------------------------------------------
-// Contract format 1 (README of poli-page/api-contract)
+// Contract format 2 (README of poli-page/api-contract)
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
